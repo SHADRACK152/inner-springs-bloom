@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Instrument+Sans:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Trebuchet+MS&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,36 +6,36 @@
 
 @layer base {
   :root {
-    --background: 150 14% 97%;
-    --foreground: 0 0% 18%;
+    --background: 34 33% 96%;
+    --foreground: 200 37% 25%;
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 18%;
+    --card-foreground: 200 37% 25%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 18%;
-    --primary: 185 59% 30%;
+    --popover-foreground: 200 37% 25%;
+    --primary: 191 55% 36%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 134 18% 69%;
-    --secondary-foreground: 0 0% 18%;
-    --muted: 150 14% 94%;
-    --muted-foreground: 215 14% 34%;
-    --accent: 33 65% 61%;
-    --accent-foreground: 0 0% 18%;
+    --secondary: 80 60% 35%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 34 20% 92%;
+    --muted-foreground: 200 20% 40%;
+    --accent: 27 55% 64%;
+    --accent-foreground: 0 0% 100%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 185 59% 30% / 0.1;
-    --input: 185 59% 30% / 0.15;
-    --ring: 185 59% 30%;
-    --radius: 16px;
-    --terracotta: 20 46% 56%;
-    --navy: 205 52% 25%;
-    --cream: 36 38% 96%;
+    --border: 200 37% 25% / 0.1;
+    --input: 200 37% 25% / 0.12;
+    --ring: 191 55% 36%;
+    --radius: 8px;
+    --navy: 200 37% 25%;
+    --olive: 80 60% 35%;
+    --terracotta: 27 55% 64%;
+    --cream: 34 33% 96%;
 
-    --shadow-card: 0 0 0 1px hsla(185, 59%, 30%, 0.05), 0 2px 4px hsla(0, 0%, 0%, 0.05), 0 12px 24px hsla(0, 0%, 0%, 0.03);
-    --shadow-card-hover: 0 0 0 1px hsla(185, 59%, 30%, 0.08), 0 4px 8px hsla(0, 0%, 0%, 0.08), 0 16px 32px hsla(0, 0%, 0%, 0.06);
+    --shadow-card: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
+    --shadow-card-hover: 0 4px 12px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06);
 
-    --font-display: 'Instrument Sans', 'Gill Sans', 'Trebuchet MS', sans-serif;
-    --font-body: 'IBM Plex Sans', sans-serif;
-    --font-serif: 'Garamond', 'Georgia', serif;
+    --font-serif: 'EB Garamond', 'Georgia', serif;
+    --font-sans: 'Trebuchet MS', 'Gill Sans', sans-serif;
   }
 }
 
@@ -45,12 +45,34 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: var(--font-body);
+    font-family: var(--font-sans);
+    font-size: 17px;
+    line-height: 1.7;
   }
-  h1, h2, h3, h4, h5, h6 {
-    font-family: var(--font-display);
-    letter-spacing: -0.02em;
-    font-weight: 600;
+  h1 {
+    font-family: var(--font-serif);
+    font-size: 52px;
+    font-weight: 400;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+  }
+  h2 {
+    font-family: var(--font-sans);
+    font-size: 36px;
+    font-weight: 300;
+    line-height: 1.25;
+  }
+  h3 {
+    font-family: var(--font-serif);
+    font-size: 28px;
+    font-weight: 400;
+    line-height: 1.3;
+  }
+  h4 {
+    font-family: var(--font-sans);
+    font-size: 22px;
+    font-weight: 400;
+    line-height: 1.35;
   }
 }
 
@@ -59,51 +81,55 @@
     @apply max-w-7xl mx-auto px-6;
   }
   .section-spacing {
-    @apply py-24;
+    @apply py-20 md:py-24;
   }
   .card-surface {
     box-shadow: var(--shadow-card);
     border-radius: var(--radius);
-    transition: all 200ms cubic-bezier(0.2, 0, 0, 1);
+    transition: all 200ms ease;
   }
   .card-surface:hover {
     box-shadow: var(--shadow-card-hover);
-    transform: translateY(-4px);
+    transform: translateY(-2px);
   }
   .btn-primary {
-    @apply bg-primary text-primary-foreground px-6 py-3 rounded-xl font-medium;
-    font-family: var(--font-display);
-    transition: all 200ms cubic-bezier(0.2, 0, 0, 1);
+    @apply bg-primary text-primary-foreground px-6 py-3 font-medium;
+    font-family: var(--font-sans);
+    font-size: 16px;
+    border-radius: var(--radius);
+    transition: all 200ms ease;
   }
   .btn-primary:hover {
-    transform: scale(1.02);
     filter: brightness(1.1);
   }
-  .btn-primary:active {
-    transform: scale(0.98);
+  .btn-outline {
+    @apply px-6 py-3 font-medium border-2;
+    font-family: var(--font-sans);
+    font-size: 16px;
+    border-radius: var(--radius);
+    border-color: hsl(var(--terracotta));
+    color: hsl(var(--terracotta));
+    transition: all 200ms ease;
   }
-  .btn-accent {
-    @apply bg-accent text-accent-foreground px-6 py-3 rounded-xl font-medium;
-    font-family: var(--font-display);
-    transition: all 200ms cubic-bezier(0.2, 0, 0, 1);
-  }
-  .btn-accent:hover {
-    transform: scale(1.02);
-    filter: brightness(1.05);
-  }
-  .btn-accent:active {
-    transform: scale(0.98);
+  .btn-outline:hover {
+    background: hsl(var(--terracotta));
+    color: white;
   }
   .text-balance {
     text-wrap: pretty;
   }
   .image-frame {
-    border-radius: 12px;
-    outline: 1px solid rgba(0,0,0,0.08);
+    border-radius: var(--radius);
+    outline: 1px solid rgba(0,0,0,0.06);
     outline-offset: -1px;
   }
-  .gold-top-border {
-    border-top: 3px solid hsl(var(--accent));
+  .service-card-left {
+    border-left: 4px solid hsl(var(--primary));
+  }
+  .font-accent {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 19px;
   }
 }
 

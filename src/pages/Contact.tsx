@@ -31,14 +31,13 @@ const Contact = () => {
       return;
     }
     setSending(true);
-    // Simulate send
     await new Promise(r => setTimeout(r, 1000));
     toast.success("Message sent successfully! We'll get back to you soon.");
     setForm({ name: "", email: "", phone: "", service: "", message: "" });
     setSending(false);
   };
 
-  const inputClass = "w-full px-4 py-3 rounded-xl bg-background font-body text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-shadow";
+  const inputClass = "w-full px-4 py-3 rounded-lg bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-shadow border border-input";
 
   return (
     <>
@@ -46,59 +45,62 @@ const Contact = () => {
       <main className="pt-16 md:pt-20">
         <section className="section-spacing bg-background">
           <div className="container-main">
-            <div className="text-center mb-16">
-              <h1 className="font-display text-4xl md:text-5xl font-semibold text-foreground mb-4">Get In Touch</h1>
-              <p className="font-body text-muted-foreground max-w-2xl mx-auto text-balance">
+            <div className="text-center mb-14">
+              <h1 className="text-primary mb-4">Get In Touch</h1>
+              <p className="text-muted-foreground max-w-2xl mx-auto text-balance">
                 Ready to start your journey? Reach out and let's discuss how we can support your growth.
               </p>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-              {/* Contact Info */}
               <div className="space-y-8">
-                <img src={contactBg} alt="Nairobi skyline" className="image-frame w-full rounded-2xl h-56 object-cover mb-8" />
-                <div className="space-y-6">
+                <img src={contactBg} alt="Kenya Bankers Complex Ngong" className="image-frame w-full rounded-lg h-56 object-cover" />
+                <div className="space-y-5">
                   {[
-                    { icon: MapPin, label: "Our Office", text: "Nairobi, Kenya" },
-                    { icon: Phone, label: "Phone", text: "+254 700 000 000" },
-                    { icon: Mail, label: "Email", text: "info@innerspringsafrica.com" },
+                    { icon: MapPin, label: "Our Office", text: "Kenya Bankers Complex, 3rd Avenue Ngong, Ground Floor" },
+                    { icon: Phone, label: "Phone", text: "+254 720 851 710" },
+                    { icon: Mail, label: "Email", text: "info@innersprings.Africa" },
                     { icon: Clock, label: "Working Hours", text: "Mon – Fri, 8:00 AM – 6:00 PM EAT" },
                   ].map(item => (
                     <div key={item.label} className="flex items-start gap-4">
-                      <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
                         <item.icon className="w-5 h-5 text-primary" />
                       </div>
                       <div>
-                        <p className="font-display text-sm font-semibold text-foreground">{item.label}</p>
-                        <p className="font-body text-sm text-muted-foreground">{item.text}</p>
+                        <p className="text-sm font-semibold text-foreground">{item.label}</p>
+                        <p className="text-sm text-muted-foreground">{item.text}</p>
                       </div>
                     </div>
                   ))}
                 </div>
+                <div className="flex gap-4">
+                  <a href="https://twitter.com/Innersprings" target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">𝕏 Twitter</a>
+                  <a href="https://facebook.com/Innersprings" target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">Facebook</a>
+                  <a href="https://instagram.com/Innersprings" target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">Instagram</a>
+                </div>
               </div>
 
-              {/* Form */}
-              <form onSubmit={handleSubmit} className="card-surface bg-card p-8 rounded-2xl space-y-5">
+              <form onSubmit={handleSubmit} className="card-surface bg-card p-8 rounded-lg space-y-5">
                 <div>
-                  <label className="font-display text-sm font-medium text-foreground mb-1.5 block">Full Name *</label>
-                  <input className={inputClass} placeholder="Your name" value={form.name} onChange={e => setForm({...form, name: e.target.value})} style={{ border: `1px solid ${errors.name ? 'hsl(0 84% 60%)' : 'hsl(185 59% 30% / 0.15)'}` }} />
+                  <label className="text-sm font-medium text-foreground mb-1.5 block">Full Name *</label>
+                  <input className={inputClass} placeholder="Your name" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
                   {errors.name && <p className="text-destructive text-xs mt-1">{errors.name}</p>}
                 </div>
                 <div>
-                  <label className="font-display text-sm font-medium text-foreground mb-1.5 block">Email Address *</label>
-                  <input className={inputClass} type="email" placeholder="you@example.com" value={form.email} onChange={e => setForm({...form, email: e.target.value})} style={{ border: `1px solid ${errors.email ? 'hsl(0 84% 60%)' : 'hsl(185 59% 30% / 0.15)'}` }} />
+                  <label className="text-sm font-medium text-foreground mb-1.5 block">Email Address *</label>
+                  <input className={inputClass} type="email" placeholder="you@example.com" value={form.email} onChange={e => setForm({...form, email: e.target.value})} />
                   {errors.email && <p className="text-destructive text-xs mt-1">{errors.email}</p>}
                 </div>
                 <div>
-                  <label className="font-display text-sm font-medium text-foreground mb-1.5 block">Phone Number</label>
-                  <input className={inputClass} placeholder="+254 7XX XXX XXX" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} style={{ border: '1px solid hsl(185 59% 30% / 0.15)' }} />
+                  <label className="text-sm font-medium text-foreground mb-1.5 block">Phone Number</label>
+                  <input className={inputClass} placeholder="+254 7XX XXX XXX" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} />
                 </div>
                 <div>
-                  <label className="font-display text-sm font-medium text-foreground mb-1.5 block">Service of Interest *</label>
-                  <select className={inputClass} value={form.service} onChange={e => setForm({...form, service: e.target.value})} style={{ border: `1px solid ${errors.service ? 'hsl(0 84% 60%)' : 'hsl(185 59% 30% / 0.15)'}` }}>
+                  <label className="text-sm font-medium text-foreground mb-1.5 block">Service of Interest *</label>
+                  <select className={inputClass} value={form.service} onChange={e => setForm({...form, service: e.target.value})}>
                     <option value="">Select a service</option>
-                    <option>Coaching</option>
                     <option>Mental Health Services</option>
+                    <option>Coaching</option>
                     <option>Training & Workshops</option>
                     <option>Corporate Programs</option>
                     <option>Other</option>
@@ -106,8 +108,8 @@ const Contact = () => {
                   {errors.service && <p className="text-destructive text-xs mt-1">{errors.service}</p>}
                 </div>
                 <div>
-                  <label className="font-display text-sm font-medium text-foreground mb-1.5 block">Message *</label>
-                  <textarea className={inputClass} rows={4} placeholder="Tell us how we can help..." value={form.message} onChange={e => setForm({...form, message: e.target.value})} style={{ border: `1px solid ${errors.message ? 'hsl(0 84% 60%)' : 'hsl(185 59% 30% / 0.15)'}` }} />
+                  <label className="text-sm font-medium text-foreground mb-1.5 block">Message *</label>
+                  <textarea className={inputClass} rows={4} placeholder="Tell us how we can help..." value={form.message} onChange={e => setForm({...form, message: e.target.value})} />
                   {errors.message && <p className="text-destructive text-xs mt-1">{errors.message}</p>}
                 </div>
                 <button type="submit" disabled={sending} className="btn-primary w-full disabled:opacity-60">

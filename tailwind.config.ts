@@ -12,9 +12,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        display: ['Instrument Sans', 'Gill Sans', 'Trebuchet MS', 'sans-serif'],
-        body: ['IBM Plex Sans', 'sans-serif'],
-        serif: ['Garamond', 'Georgia', 'serif'],
+        serif: ['EB Garamond', 'Georgia', 'serif'],
+        sans: ['Trebuchet MS', 'Gill Sans', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -29,14 +28,15 @@ export default {
         accent: { DEFAULT: "hsl(var(--accent))", foreground: "hsl(var(--accent-foreground))" },
         popover: { DEFAULT: "hsl(var(--popover))", foreground: "hsl(var(--popover-foreground))" },
         card: { DEFAULT: "hsl(var(--card))", foreground: "hsl(var(--card-foreground))" },
-        terracotta: "hsl(var(--terracotta))",
         navy: "hsl(var(--navy))",
+        olive: "hsl(var(--olive))",
+        terracotta: "hsl(var(--terracotta))",
         cream: "hsl(var(--cream))",
       },
       borderRadius: {
         lg: "var(--radius)",
-        md: "calc(var(--radius) - 4px)",
-        sm: "calc(var(--radius) - 8px)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
       },
       keyframes: {
         "accordion-down": { from: { height: "0" }, to: { height: "var(--radix-accordion-content-height)" } },
