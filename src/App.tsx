@@ -8,6 +8,9 @@ import Coaching from "./pages/Coaching.tsx";
 import MentalHealth from "./pages/MentalHealth.tsx";
 import Training from "./pages/Training.tsx";
 import Contact from "./pages/Contact.tsx";
+import Resources from "./pages/Resources.tsx";
+import ClientPortal from "./pages/ClientPortal.tsx";
+import BookSession from "./pages/BookSession.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -24,6 +27,9 @@ const App = () => (
           <Route path="/mental-health" element={<MentalHealth />} />
           <Route path="/training" element={<Training />} />
           <Route path="/contact" element={<Contact />} />
+          <Route path="/resources" element={<Resources />} />
+          <Route path="/portal" element={<ClientPortal />} />
+          <Route path="/book" element={<BookSession />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
