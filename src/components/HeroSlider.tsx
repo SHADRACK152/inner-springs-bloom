@@ -8,34 +8,39 @@ import heroCounseling from "@/assets/hero-counseling.jpg";
 const slides = [
   {
     image: heroLeader,
-    title: "Unlocking Potential Across Africa",
-    subtitle: "Evidence-based coaching, mental health services, and transformative training.",
-    cta: "Explore Our Services",
-    link: "/coaching",
+    title: "Healing Within. Thriving Beyond.",
+    subtitle: "Empowering your journey to wellness and greatness through integrated care.",
+    primaryCta: "Book Free Assessment",
+    primaryLink: "/book",
+    secondaryCta: "Learn More",
+    secondaryLink: "/about",
   },
   {
     image: heroWorkshop,
     title: "Evidence-Based Training for Excellence",
     subtitle: "Impactful programs that build capacity and drive organizational growth.",
-    cta: "View Training Programs",
-    link: "/training",
+    primaryCta: "View Programs",
+    primaryLink: "/training",
+    secondaryCta: "Contact Us",
+    secondaryLink: "/contact",
   },
   {
     image: heroCounseling,
-    title: "Healing Within. Thriving Beyond.",
-    subtitle: "Culturally relevant mental health support for individuals, families, and organizations.",
-    cta: "Learn More",
-    link: "/mental-health",
+    title: "Professional Mental Health Care",
+    subtitle: "Culturally relevant psychological support for individuals, families, and organizations.",
+    primaryCta: "Book Intake Session",
+    primaryLink: "/book",
+    secondaryCta: "Our Services",
+    secondaryLink: "/mental-health",
   },
 ];
 
 const HeroSlider = () => {
   const [current, setCurrent] = useState(0);
-
   const next = useCallback(() => setCurrent(c => (c + 1) % slides.length), []);
 
   useEffect(() => {
-    const timer = setInterval(next, 5000);
+    const timer = setInterval(next, 6000);
     return () => clearInterval(timer);
   }, [next]);
 
@@ -56,22 +61,24 @@ const HeroSlider = () => {
         />
       </AnimatePresence>
 
-      {/* Text on solid background box — no overlay */}
-      <div className="absolute inset-0 flex items-end pb-20 md:pb-24">
+      <div className="absolute inset-0 flex items-end pb-16 md:pb-24">
         <div className="container-main">
           <AnimatePresence mode="wait">
             <motion.div
               key={current}
-              className="bg-card/95 backdrop-blur-sm p-8 md:p-10 rounded-2xl max-w-xl"
+              className="bg-card/95 backdrop-blur-sm p-8 md:p-10 rounded-lg max-w-xl"
               style={{ boxShadow: "var(--shadow-card-hover)" }}
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.5, ease: [0.2, 0, 0, 1] }}
             >
-              <h1 className="font-display text-3xl md:text-4xl font-semibold text-foreground mb-3 leading-tight">{slide.title}</h1>
-              <p className="text-muted-foreground font-body text-base mb-6 text-balance">{slide.subtitle}</p>
-              <Link to={slide.link} className="btn-primary inline-block">{slide.cta}</Link>
+              <h1 className="text-3xl md:text-[44px] text-primary mb-3 leading-tight">{slide.title}</h1>
+              <p className="text-muted-foreground text-base mb-6 text-balance">{slide.subtitle}</p>
+              <div className="flex flex-wrap gap-3">
+                <Link to={slide.primaryLink} className="btn-primary">{slide.primaryCta}</Link>
+                <Link to={slide.secondaryLink} className="btn-outline">{slide.secondaryCta}</Link>
+              </div>
             </motion.div>
           </AnimatePresence>
         </div>
@@ -80,18 +87,18 @@ const HeroSlider = () => {
       {/* Progress bar */}
       <div className="absolute bottom-0 left-0 right-0 h-1 bg-muted">
         <motion.div
-          className="h-full bg-accent"
+          className="h-full bg-primary"
           key={current}
           initial={{ width: "0%" }}
           animate={{ width: "100%" }}
-          transition={{ duration: 5, ease: "linear" }}
+          transition={{ duration: 6, ease: "linear" }}
         />
       </div>
 
       {/* Dots */}
       <div className="absolute bottom-6 right-6 flex gap-2">
         {slides.map((_, i) => (
-          <button key={i} onClick={() => setCurrent(i)} className={`w-3 h-3 rounded-full transition-colors ${i === current ? "bg-accent" : "bg-card/50"}`} aria-label={`Go to slide ${i + 1}`} />
+          <button key={i} onClick={() => setCurrent(i)} className={`w-3 h-3 rounded-full transition-colors ${i === current ? "bg-primary" : "bg-card/50"}`} aria-label={`Go to slide ${i + 1}`} />
         ))}
       </div>
     </section>
