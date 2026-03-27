@@ -9,6 +9,10 @@ import { toast } from "sonner";
 interface BookingItem {
   id: string;
   service: string;
+  source?: string;
+  assessmentType?: string;
+  durationMinutes?: number;
+  cost?: number;
   date: string;
   time: string;
   name: string;
@@ -44,9 +48,20 @@ const AdminBookings = () => {
           password: string;
           clientId: string;
         };
+        welcomeEmail?: {
+          status: "logged" | "sent" | "failed";
+          subject: string;
+        };
       };
       setLastProvisioned(payload.credentials);
-      toast.success("Client profile and login created from booking");
+      const emailStatus = payload.welcomeEmail?.status;
+      if (emailStatus === "sent") {
+        toast.success("Client profile created and welcome email sent");
+      } else if (emailStatus === "failed") {
+        toast.warning("Client profile created, but welcome email dispatch failed");
+      } else {
+        toast.success("Client profile created and welcome email logged");
+      }
       refetch();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to provision client");
@@ -86,6 +101,7 @@ const AdminBookings = () => {
                 <div>
                   <p className="text-sm font-medium text-foreground">{b.name} ({b.service})</p>
                   <p className="text-xs text-muted-foreground">{b.email} • {b.phone}</p>
+                  <p className="text-xs text-muted-foreground">Source: {b.source || "website"} • Assessment: {b.assessmentType || "pre-coaching-assessment"} • Duration: {b.durationMinutes || 45} mins • Cost: KES {b.cost ?? 0}</p>
                   <p className="text-xs text-muted-foreground">Preferred: {b.date} at {b.time}</p>
                   {b.notes && <p className="text-xs text-muted-foreground mt-1">Notes: {b.notes}</p>}
                   {b.convertedClientId && (

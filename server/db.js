@@ -92,6 +92,10 @@ CREATE TABLE IF NOT EXISTS payments (
 CREATE TABLE IF NOT EXISTS bookings (
   id TEXT PRIMARY KEY,
   service TEXT NOT NULL,
+  source TEXT NOT NULL DEFAULT 'website',
+  assessment_type TEXT NOT NULL DEFAULT 'pre-coaching-assessment',
+  duration_minutes INTEGER NOT NULL DEFAULT 45,
+  cost INTEGER NOT NULL DEFAULT 0,
   date DATE NOT NULL,
   time TEXT NOT NULL,
   name TEXT NOT NULL,
@@ -110,6 +114,17 @@ CREATE TABLE IF NOT EXISTS contact_messages (
   service TEXT NOT NULL,
   message TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS email_dispatches (
+  id TEXT PRIMARY KEY,
+  recipient_email TEXT NOT NULL,
+  template TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  body TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('logged', 'sent', 'failed')),
+  created_at TIMESTAMPTZ NOT NULL,
+  meta JSONB NOT NULL DEFAULT '{}'::jsonb
 );
 `;
 
@@ -222,5 +237,19 @@ export async function initDb() {
   await query(schemaSql);
   await query("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ");
   await query("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS converted_client_id TEXT");
+  await query("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'website'");
+  await query("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS assessment_type TEXT DEFAULT 'pre-coaching-assessment'");
+  await query("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS duration_minutes INTEGER DEFAULT 45");
+  await query("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS cost INTEGER DEFAULT 0");
+
+  await query("UPDATE bookings SET source = COALESCE(source, 'website')");
+  await query("UPDATE bookings SET assessment_type = COALESCE(assessment_type, 'pre-coaching-assessment')");
+  await query("UPDATE bookings SET duration_minutes = COALESCE(duration_minutes, 45)");
+  await query("UPDATE bookings SET cost = COALESCE(cost, 0)");
+
+  await query("ALTER TABLE bookings ALTER COLUMN source SET NOT NULL");
+  await query("ALTER TABLE bookings ALTER COLUMN assessment_type SET NOT NULL");
+  await query("ALTER TABLE bookings ALTER COLUMN duration_minutes SET NOT NULL");
+  await query("ALTER TABLE bookings ALTER COLUMN cost SET NOT NULL");
   await seedIfEmpty();
 }

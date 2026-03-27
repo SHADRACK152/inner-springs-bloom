@@ -9,6 +9,7 @@ import { initDb, pingDb, query, withTransaction } from "./db.js";
 const app = express();
 const port = Number(process.env.PORT || process.env.API_PORT || 4000);
 const isVercel = process.env.VERCEL === "1";
+const welcomeEmailWebhookUrl = process.env.WELCOME_EMAIL_WEBHOOK_URL || "";
 let dbInitPromise;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -134,6 +135,10 @@ function toCamelBooking(row) {
   return {
     id: row.id,
     service: row.service,
+    source: row.source,
+    assessmentType: row.assessment_type,
+    durationMinutes: row.duration_minutes,
+    cost: row.cost,
     date: row.date,
     time: row.time,
     name: row.name,
@@ -145,6 +150,78 @@ function toCamelBooking(row) {
     reviewedAt: row.reviewed_at,
     convertedClientId: row.converted_client_id,
   };
+}
+
+function buildWelcomeEmail({ name, email, password, clientId, service }) {
+  const portalUrl = process.env.CLIENT_PORTAL_URL || "https://inner-springs-bloom-production.up.railway.app/login";
+  const subject = "Welcome to InnerSprings Client Portal";
+  const body = [
+    `Hello ${name},`,
+    "",
+    "Welcome to InnerSprings Africa.",
+    "Your coaching profile has been created after your free pre-coaching assessment.",
+    "",
+    "Login credentials:",
+    `Portal: ${portalUrl}`,
+    `Email: ${email}`,
+    `Password: ${password}`,
+    `Client ID: ${clientId}`,
+    `Service: ${service}`,
+    "",
+    "Please log in and change your password after first sign-in.",
+    "",
+    "InnerSprings Africa",
+  ].join("\n");
+
+  return { subject, body };
+}
+
+async function dispatchWelcomeEmail({ name, email, password, clientId, service }) {
+  const { subject, body } = buildWelcomeEmail({ name, email, password, clientId, service });
+  const dispatchId = `mail_${nanoid(10)}`;
+  const createdAt = new Date().toISOString();
+
+  let status = "logged";
+  let providerResponse = "Webhook not configured";
+
+  if (welcomeEmailWebhookUrl) {
+    try {
+      const response = await fetch(welcomeEmailWebhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: email,
+          subject,
+          text: body,
+          template: "client-welcome",
+          metadata: { clientId, service },
+        }),
+      });
+
+      providerResponse = await response.text();
+      status = response.ok ? "sent" : "failed";
+    } catch (error) {
+      status = "failed";
+      providerResponse = error instanceof Error ? error.message : "Unknown webhook error";
+    }
+  }
+
+  await query(
+    `INSERT INTO email_dispatches (id, recipient_email, template, subject, body, status, created_at, meta)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb)`,
+    [
+      dispatchId,
+      email,
+      "client-welcome",
+      subject,
+      body,
+      status,
+      createdAt,
+      JSON.stringify({ clientId, service, providerResponse }),
+    ],
+  );
+
+  return { status, subject };
 }
 
 app.post("/api/auth/login", async (req, res) => {
@@ -294,6 +371,7 @@ app.post("/api/admin/bookings/:bookingId/provision-client", async (req, res) => 
   const generatedPassword = password || `inner-${nanoid(8)}`;
   const clientId = `c_${nanoid(10)}`;
   const userId = `u_${nanoid(10)}`;
+  const today = new Date().toISOString().slice(0, 10);
 
   await withTransaction(async (tx) => {
     await tx.query(
@@ -305,7 +383,7 @@ app.post("/api/admin/bookings/:bookingId/provision-client", async (req, res) => 
         booking.email,
         booking.phone,
         booking.service,
-        new Date().toISOString().slice(0, 10),
+        today,
         resolvedTotalSessions,
         resolvedTotalCost,
       ],
@@ -323,6 +401,27 @@ app.post("/api/admin/bookings/:bookingId/provision-client", async (req, res) => 
        WHERE id = $1`,
       [booking.id, clientId],
     );
+
+    await tx.query(
+      `INSERT INTO notifications (id, client_id, title, message, type, date, read)
+       VALUES ($1,$2,$3,$4,$5,$6,false)`,
+      [
+        `n_${nanoid(10)}`,
+        clientId,
+        "Welcome to InnerSprings",
+        "Your client profile is now active. Your portal login credentials have been sent to your email.",
+        "email",
+        today,
+      ],
+    );
+  });
+
+  const welcomeEmail = await dispatchWelcomeEmail({
+    name: booking.name,
+    email: booking.email,
+    password: generatedPassword,
+    clientId,
+    service: booking.service,
   });
 
   return res.status(201).json({
@@ -332,6 +431,7 @@ app.post("/api/admin/bookings/:bookingId/provision-client", async (req, res) => 
       clientId,
       name: booking.name,
     },
+    welcomeEmail,
   });
 });
 
@@ -433,18 +533,26 @@ app.post("/api/bookings", async (req, res) => {
   }
 
   const booking = {
+    ...payload,
     id: nanoid(),
     createdAt: new Date().toISOString(),
     status: "pending",
-    ...payload,
+    source: payload.source || "website",
+    assessmentType: payload.assessmentType || "pre-coaching-assessment",
+    durationMinutes: Number(payload.durationMinutes) || 45,
+    cost: Number(payload.cost) || 0,
   };
 
   await query(
-    `INSERT INTO bookings (id, service, date, time, name, email, phone, notes, status, created_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+    `INSERT INTO bookings (id, service, source, assessment_type, duration_minutes, cost, date, time, name, email, phone, notes, status, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
     [
       booking.id,
       booking.service,
+      booking.source,
+      booking.assessmentType,
+      booking.durationMinutes,
+      booking.cost,
       booking.date,
       booking.time,
       booking.name,

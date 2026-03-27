@@ -63,6 +63,25 @@ Health endpoint: `http://localhost:4000/api/health`
 	- Email: `admin@innersprings.africa`
 	- Password: `admin123`
 
+## Step-by-Step Client Journey
+
+### Coaching client journey flow
+
+1. **Step 1: Initial Contact**
+	- Client reaches out via website/phone/email or books directly on the website
+	- Action: Book free pre-coaching assessment
+2. **Step 2: Pre-Coaching Assessment (FREE)**
+	- 30-45 minute session
+	- Assess coaching needs
+	- Discuss goals and expectations
+	- Explain coaching process
+	- No payment required
+3. **Step 3: CRM Profile Creation**
+	- Client information is added to CRM (PostgreSQL)
+	- Unique client portal account is created
+	- Automated welcome email is dispatched (webhook if configured, otherwise logged)
+	- Client receives portal login credentials
+
 ## Deploy to Vercel
 
 This project is configured for a single Vercel deployment that serves:
@@ -90,6 +109,7 @@ Add these variables for Production (and Preview if desired):
 
 - `DATABASE_URL`: your Neon/Postgres connection string
 - `VITE_API_URL`: leave empty (recommended when frontend and API are on same Vercel domain)
+- `WELCOME_EMAIL_WEBHOOK_URL` (optional): POST webhook used to send automated welcome email after client onboarding
 
 If you deploy API and frontend to different domains, set `VITE_API_URL` to the full API domain URL.
 

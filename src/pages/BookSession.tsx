@@ -23,12 +23,21 @@ const BookSession = () => {
   const times = ["9:00 AM", "10:00 AM", "11:00 AM", "2:00 PM", "3:00 PM", "4:00 PM"];
 
   const handleSubmit = async () => {
+    const selectedService = services.find((item) => item.id === service);
+    const isCoaching = service === "coaching";
+
     try {
       setSubmitting(true);
       await api.post("/api/bookings", {
         service,
+        source: "website",
+        assessmentType: isCoaching ? "pre-coaching-assessment" : "intake-assessment",
+        durationMinutes: isCoaching ? 45 : 30,
+        cost: 0,
         date,
         time,
+        journeyStep: "step-1-initial-contact",
+        serviceLabel: selectedService?.label || service,
         ...form,
       });
       toast.success("Assessment booked successfully! Check your email for confirmation details.");
@@ -52,6 +61,15 @@ const BookSession = () => {
               <p className="text-muted-foreground text-balance">
                 Start your journey with a free intake session. No obligations, completely free.
               </p>
+            </div>
+
+            <div className="mb-8 rounded-lg border border-primary/20 bg-primary/5 p-5">
+              <h2 className="text-lg font-semibold text-foreground">Coaching Client Journey Flow</h2>
+              <div className="mt-3 space-y-3 text-sm text-muted-foreground">
+                <p><span className="font-medium text-foreground">Step 1: Initial Contact.</span> Reach out via website, phone, or email, then book a free pre-coaching assessment.</p>
+                <p><span className="font-medium text-foreground">Step 2: Pre-Coaching Assessment (FREE).</span> 30-45 minutes to assess your needs, discuss goals, and explain the coaching process.</p>
+                <p><span className="font-medium text-foreground">Step 3: CRM Profile Creation.</span> Our team creates your CRM profile and portal account, then sends your welcome login credentials.</p>
+              </div>
             </div>
 
             {/* Progress Steps */}
