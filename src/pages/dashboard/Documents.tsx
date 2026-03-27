@@ -2,7 +2,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { Download, FileText, FileCheck, FileSpreadsheet, Award } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useDashboardData } from "@/hooks/useDashboardData";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -11,6 +11,7 @@ const iconMap = { report: FileText, agreement: FileCheck, certificate: Award, as
 const Documents = () => {
   const { data, isLoading, refetch } = useDashboardData();
   const [savingIntake, setSavingIntake] = useState(false);
+  const [showIntakeEditor, setShowIntakeEditor] = useState(false);
   const [consenting, setConsenting] = useState(false);
   const [signing, setSigning] = useState(false);
   const [signatureName, setSignatureName] = useState("");
@@ -43,6 +44,20 @@ const Documents = () => {
   const proposal = data?.proposal;
   const agreement = data?.consentAgreement;
   const intakeNeedsSubmission = intake?.status !== "submitted" && intake?.status !== "reviewed";
+
+  useEffect(() => {
+    if (!data) return;
+
+    setShowIntakeEditor(intakeNeedsSubmission);
+    setIntakeForm({
+      goals: data.intakeForm?.goals || "",
+      challenges: data.intakeForm?.challenges || "",
+      history: data.intakeForm?.history || "",
+      preferredStyle: data.intakeForm?.preferredStyle || "",
+      availability: data.intakeForm?.availability || "",
+      consent: Boolean(data.intakeForm?.consent),
+    });
+  }, [data?.intakeForm?.id, intakeNeedsSubmission]);
 
   const consentToProposal = async () => {
     if (!data || !proposal) return;
@@ -102,7 +117,7 @@ const Documents = () => {
         </div>
       </div>
 
-      {intakeNeedsSubmission && (
+      {showIntakeEditor && (
         <form onSubmit={submitIntake} className="rounded-lg border border-primary/20 bg-primary/5 p-5 space-y-3">
           <h3 className="text-lg text-foreground">Client Intake Form</h3>
           <p className="text-sm text-muted-foreground">Complete this online intake form to continue onboarding. Submission automatically flags your profile for coach review.</p>
@@ -124,13 +139,19 @@ const Documents = () => {
           <Button type="submit" disabled={savingIntake}>
             {savingIntake ? "Submitting..." : "Submit Intake Form"}
           </Button>
+          <Button type="button" variant="ghost" onClick={() => setShowIntakeEditor(false)}>
+            Hide Form
+          </Button>
         </form>
       )}
 
-      {!intakeNeedsSubmission && intake && (
+      {!intakeNeedsSubmission && intake && !showIntakeEditor && (
         <div className="rounded-lg border border-secondary/20 bg-secondary/5 p-5 text-sm">
           <p className="font-medium text-foreground">Intake form submitted</p>
           <p className="text-muted-foreground mt-1">Status: {intake.status} {intake.coachReviewRequired ? "(awaiting coach review)" : "(coach reviewed)"}</p>
+          <Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => setShowIntakeEditor(true)}>
+            Edit / Resubmit Intake Form
+          </Button>
         </div>
       )}
 
