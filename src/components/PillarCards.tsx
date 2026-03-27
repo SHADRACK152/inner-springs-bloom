@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Heart, Users, BookOpen, BarChart3 } from "lucide-react";
+import { Heart, Users, BookOpen } from "lucide-react";
 
 const pillars = [
   {
@@ -26,14 +26,6 @@ const pillars = [
     cta: "Book for Need Analysis (Free)",
     link: "/book",
   },
-  {
-    icon: BarChart3,
-    title: "Research",
-    subtitle: "Data-Driven Insights",
-    description: "Rigorous research informing evidence-based interventions that are scientifically grounded.",
-    cta: "Learn More",
-    link: "/about",
-  },
 ];
 
 const PillarCards = () => (
@@ -45,7 +37,7 @@ const PillarCards = () => (
           We bring together psychology, coaching, and training in an integrated framework for deep, lasting transformation.
         </p>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {pillars.map(p => (
           <div key={p.title} className="card-surface bg-card p-6 rounded-lg service-card-left group">
             <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
