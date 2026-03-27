@@ -12,6 +12,7 @@ const Documents = () => {
   const { data, isLoading, refetch } = useDashboardData();
   const [savingIntake, setSavingIntake] = useState(false);
   const [showIntakeEditor, setShowIntakeEditor] = useState(false);
+  const [showEthics, setShowEthics] = useState(false);
   const [consenting, setConsenting] = useState(false);
   const [signing, setSigning] = useState(false);
   const [signatureName, setSignatureName] = useState("");
@@ -43,6 +44,7 @@ const Documents = () => {
   const intake = data?.intakeForm;
   const proposal = data?.proposal;
   const agreement = data?.consentAgreement;
+  const ethicsDoc = data?.documents.find((doc) => doc.title.toLowerCase().includes("icf code of ethics"));
   const onboarding = data?.onboarding || {
     portalAccess: true,
     icfCodeOfEthicsAvailable: false,
@@ -117,13 +119,37 @@ const Documents = () => {
       </div>
 
       <div className="rounded-lg border border-border bg-card p-5">
-        <h2 className="text-lg text-navy">Step 4: Client Portal Access & Documentation</h2>
+        <h2 className="text-lg text-navy">Client Portal Access & Documentation</h2>
         <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
           <p className="text-muted-foreground">Portal access: <span className="font-medium text-foreground">Active</span></p>
           <p className="text-muted-foreground">ICF Code of Ethics: <span className="font-medium text-foreground">{onboarding.icfCodeOfEthicsAvailable ? "Available" : "Pending"}</span></p>
           <p className="text-muted-foreground">Intake form: <span className="font-medium text-foreground">{onboarding.intakeCompleted ? "Submitted" : "Pending"}</span></p>
           <p className="text-muted-foreground">Coach review flag: <span className="font-medium text-foreground">{onboarding.coachReviewRequired ? "Flagged" : "Clear"}</span></p>
         </div>
+        {ethicsDoc && (
+          <div className="mt-4 rounded-md border border-input bg-background p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-foreground">ICF Code of Ethics</p>
+                <p className="text-xs text-muted-foreground">Read key principles directly here in the dashboard.</p>
+              </div>
+              <Button type="button" size="sm" variant="outline" onClick={() => setShowEthics((prev) => !prev)}>
+                {showEthics ? "Hide" : "Read Here"}
+              </Button>
+            </div>
+
+            {showEthics && (
+              <div className="mt-3 space-y-2 text-sm text-muted-foreground">
+                <p className="font-medium text-foreground">Core ICF Ethics Principles</p>
+                <p>1. Integrity and professionalism in all coach-client interactions.</p>
+                <p>2. Confidentiality, privacy, and responsible handling of client information.</p>
+                <p>3. Clear agreements, scope, and expectations before and during coaching.</p>
+                <p>4. Respect for client autonomy, dignity, and informed decision making.</p>
+                <p>5. Ongoing competence, accountability, and ethical conduct at all times.</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {showIntakeEditor && (
@@ -165,7 +191,7 @@ const Documents = () => {
       )}
 
       <div className="rounded-lg border border-border bg-card p-5 space-y-3">
-        <h2 className="text-lg text-navy">Step 5: Coaching Proposal</h2>
+        <h2 className="text-lg text-navy">Coaching Proposal</h2>
         {!proposal && (
           <p className="text-sm text-muted-foreground">Your coach will generate and publish your customized proposal to this portal within 48 hours after intake review.</p>
         )}
@@ -191,7 +217,7 @@ const Documents = () => {
       </div>
 
       <div className="rounded-lg border border-border bg-card p-5 space-y-3">
-        <h2 className="text-lg text-navy">Step 6: Consent & Agreement</h2>
+        <h2 className="text-lg text-navy">Consent & Agreement</h2>
         {!agreement && (
           <p className="text-sm text-muted-foreground">After you click I Consent on the proposal, your coaching agreement will be generated here and a digital signature request will appear.</p>
         )}
