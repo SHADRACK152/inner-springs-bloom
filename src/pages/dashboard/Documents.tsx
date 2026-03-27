@@ -43,6 +43,15 @@ const Documents = () => {
   const intake = data?.intakeForm;
   const proposal = data?.proposal;
   const agreement = data?.consentAgreement;
+  const onboarding = data?.onboarding || {
+    portalAccess: true,
+    icfCodeOfEthicsAvailable: false,
+    intakeCompleted: false,
+    coachReviewRequired: false,
+    proposalAvailable: false,
+    consentCompleted: false,
+    agreementSigned: false,
+  };
   const intakeNeedsSubmission = intake?.status !== "submitted" && intake?.status !== "reviewed";
 
   useEffect(() => {
@@ -111,9 +120,9 @@ const Documents = () => {
         <h2 className="text-lg text-navy">Step 4: Client Portal Access & Documentation</h2>
         <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
           <p className="text-muted-foreground">Portal access: <span className="font-medium text-foreground">Active</span></p>
-          <p className="text-muted-foreground">ICF Code of Ethics: <span className="font-medium text-foreground">{data.onboarding.icfCodeOfEthicsAvailable ? "Available" : "Pending"}</span></p>
-          <p className="text-muted-foreground">Intake form: <span className="font-medium text-foreground">{data.onboarding.intakeCompleted ? "Submitted" : "Pending"}</span></p>
-          <p className="text-muted-foreground">Coach review flag: <span className="font-medium text-foreground">{data.onboarding.coachReviewRequired ? "Flagged" : "Clear"}</span></p>
+          <p className="text-muted-foreground">ICF Code of Ethics: <span className="font-medium text-foreground">{onboarding.icfCodeOfEthicsAvailable ? "Available" : "Pending"}</span></p>
+          <p className="text-muted-foreground">Intake form: <span className="font-medium text-foreground">{onboarding.intakeCompleted ? "Submitted" : "Pending"}</span></p>
+          <p className="text-muted-foreground">Coach review flag: <span className="font-medium text-foreground">{onboarding.coachReviewRequired ? "Flagged" : "Clear"}</span></p>
         </div>
       </div>
 
@@ -173,7 +182,7 @@ const Documents = () => {
               <p><span className="font-medium text-foreground">Expected outcomes:</span> {proposal.expectedOutcomes}</p>
             </div>
             {proposal.status === "sent" && (
-              <Button onClick={consentToProposal} disabled={consenting || !data.onboarding.intakeCompleted}>
+              <Button onClick={consentToProposal} disabled={consenting || !onboarding.intakeCompleted}>
                 {consenting ? "Submitting Consent..." : "I Consent"}
               </Button>
             )}
