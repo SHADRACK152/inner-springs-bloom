@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { getSession } from "@/lib/auth";
@@ -64,15 +64,48 @@ export function useNotificationCenter() {
   const feedPath = getFeedPath();
   const readPath = getReadPath();
   const session = getSession();
+  const [useLegacyMode, setUseLegacyMode] = useState(false);
 
   const fetchFeed = async (): Promise<NotificationFeed> => {
     if (!feedPath) {
       return { notifications: [], unreadCount: 0 };
     }
 
+    if (useLegacyMode) {
+      if (session?.user.role === "client" && session.user.clientId) {
+        try {
+          const legacy = await api.get(`/api/dashboard/${session.user.clientId}`) as LegacyDashboardPayload;
+          const notifications = (legacy.notifications || []).map((item) => ({
+            id: item.id,
+            audience: "client" as const,
+            clientId: item.clientId || session.user.clientId || null,
+            title: item.title,
+            message: item.message,
+            type: item.type,
+            actionLabel: "Open Notifications",
+            actionPath: "/dashboard/notifications",
+            createdAt: `${item.date}T00:00:00.000Z`,
+            read: Boolean(item.read),
+            readAt: item.read ? `${item.date}T00:00:00.000Z` : null,
+            relatedClientName: null,
+          }));
+
+          return {
+            notifications,
+            unreadCount: notifications.filter((item) => !item.read).length,
+          };
+        } catch {
+          return { notifications: [], unreadCount: 0 };
+        }
+      }
+
+      return { notifications: [], unreadCount: 0 };
+    }
+
     try {
       return (await api.get(feedPath)) as NotificationFeed;
     } catch {
+      setUseLegacyMode(true);
       // Backward compatibility: older local APIs may not have /api/notifications/* yet.
       if (session?.user.role === "client" && session.user.clientId) {
         try {
@@ -109,7 +142,7 @@ export function useNotificationCenter() {
     queryKey: ["notification-center", feedPath],
     queryFn: fetchFeed,
     enabled: Boolean(feedPath),
-    refetchInterval: 15000,
+    refetchInterval: useLegacyMode ? false : 15000,
     retry: false,
   });
 

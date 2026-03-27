@@ -104,7 +104,12 @@ const Documents = () => {
       toast.success("Intake form submitted and flagged for coach review");
       await refetch();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Unable to submit intake form");
+      const message = error instanceof Error ? error.message : "Unable to submit intake form";
+      if (message.includes("404") || message.toLowerCase().includes("request failed")) {
+        toast.error("Local API is outdated. Restart API server to load latest routes, then submit again.");
+      } else {
+        toast.error(message);
+      }
     } finally {
       setSavingIntake(false);
     }
