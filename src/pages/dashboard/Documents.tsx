@@ -8,6 +8,59 @@ import { toast } from "sonner";
 
 const iconMap = { report: FileText, agreement: FileCheck, certificate: Award, assessment: FileSpreadsheet };
 
+const goalOptions = [
+  { value: "leadership-confidence", label: "Build leadership confidence" },
+  { value: "communication-skills", label: "Improve communication skills" },
+  { value: "career-growth", label: "Plan career growth and progression" },
+  { value: "productivity-focus", label: "Increase productivity and focus" },
+  { value: "stress-balance", label: "Manage stress and work-life balance" },
+  { value: "other", label: "Other" },
+];
+
+const challengeOptions = [
+  { value: "self-doubt", label: "Self-doubt or low confidence" },
+  { value: "communication-gaps", label: "Communication challenges" },
+  { value: "time-management", label: "Time management and priorities" },
+  { value: "team-conflict", label: "Team conflict or relationship strain" },
+  { value: "clarity-direction", label: "Lack of clarity or direction" },
+  { value: "other", label: "Other" },
+];
+
+const historyOptions = [
+  { value: "none", label: "No previous coaching" },
+  { value: "short-program", label: "Short coaching program before" },
+  { value: "ongoing-mentorship", label: "Ongoing mentorship/coaching" },
+  { value: "therapy-counselling", label: "Therapy/counselling background" },
+  { value: "other", label: "Other" },
+];
+
+const styleOptions = [
+  { value: "structured", label: "Structured and goal-driven" },
+  { value: "reflective", label: "Reflective and exploratory" },
+  { value: "practical", label: "Practical tools and action steps" },
+  { value: "accountability", label: "Strong accountability check-ins" },
+  { value: "other", label: "Other" },
+];
+
+const availabilityOptions = [
+  { value: "weekday-morning", label: "Weekday mornings (8am-12pm)" },
+  { value: "weekday-afternoon", label: "Weekday afternoons (12pm-5pm)" },
+  { value: "weekday-evening", label: "Weekday evenings (5pm-8pm)" },
+  { value: "saturday", label: "Saturday sessions" },
+  { value: "flexible", label: "Flexible schedule" },
+  { value: "other", label: "Other" },
+];
+
+const mapValueToOption = (value: string, options: Array<{ value: string }>) => {
+  if (!value) {
+    return { selected: "", custom: "" };
+  }
+  if (options.some((option) => option.value === value)) {
+    return { selected: value, custom: "" };
+  }
+  return { selected: "other", custom: value };
+};
+
 const Documents = () => {
   const { data, isLoading, refetch } = useDashboardData();
   const [savingIntake, setSavingIntake] = useState(false);
@@ -24,6 +77,13 @@ const Documents = () => {
     availability: "",
     consent: false,
   });
+  const [customIntake, setCustomIntake] = useState({
+    goals: "",
+    challenges: "",
+    history: "",
+    preferredStyle: "",
+    availability: "",
+  });
 
   const submitIntake = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,7 +91,16 @@ const Documents = () => {
 
     try {
       setSavingIntake(true);
-      await api.post(`/api/dashboard/${data.client.id}/intake-form`, intakeForm);
+      const payload = {
+        goals: intakeForm.goals === "other" ? customIntake.goals.trim() : intakeForm.goals,
+        challenges: intakeForm.challenges === "other" ? customIntake.challenges.trim() : intakeForm.challenges,
+        history: intakeForm.history === "other" ? customIntake.history.trim() : intakeForm.history,
+        preferredStyle: intakeForm.preferredStyle === "other" ? customIntake.preferredStyle.trim() : intakeForm.preferredStyle,
+        availability: intakeForm.availability === "other" ? customIntake.availability.trim() : intakeForm.availability,
+        consent: intakeForm.consent,
+      };
+
+      await api.post(`/api/dashboard/${data.client.id}/intake-form`, payload);
       toast.success("Intake form submitted and flagged for coach review");
       await refetch();
     } catch (error) {
@@ -60,15 +129,39 @@ const Documents = () => {
     if (!data) return;
 
     setShowIntakeEditor(intakeNeedsSubmission);
+    const mappedGoals = mapValueToOption(data.intakeForm?.goals || "", goalOptions);
+    const mappedChallenges = mapValueToOption(data.intakeForm?.challenges || "", challengeOptions);
+    const mappedHistory = mapValueToOption(data.intakeForm?.history || "", historyOptions);
+    const mappedStyle = mapValueToOption(data.intakeForm?.preferredStyle || "", styleOptions);
+    const mappedAvailability = mapValueToOption(data.intakeForm?.availability || "", availabilityOptions);
+
     setIntakeForm({
-      goals: data.intakeForm?.goals || "",
-      challenges: data.intakeForm?.challenges || "",
-      history: data.intakeForm?.history || "",
-      preferredStyle: data.intakeForm?.preferredStyle || "",
-      availability: data.intakeForm?.availability || "",
+      goals: mappedGoals.selected,
+      challenges: mappedChallenges.selected,
+      history: mappedHistory.selected,
+      preferredStyle: mappedStyle.selected,
+      availability: mappedAvailability.selected,
       consent: Boolean(data.intakeForm?.consent),
     });
+    setCustomIntake({
+      goals: mappedGoals.custom,
+      challenges: mappedChallenges.custom,
+      history: mappedHistory.custom,
+      preferredStyle: mappedStyle.custom,
+      availability: mappedAvailability.custom,
+    });
   }, [data?.intakeForm?.id, intakeNeedsSubmission]);
+
+  const intakeHasMissingRequired =
+    !intakeForm.goals ||
+    !intakeForm.challenges ||
+    !intakeForm.preferredStyle ||
+    !intakeForm.availability ||
+    !intakeForm.consent ||
+    (intakeForm.goals === "other" && !customIntake.goals.trim()) ||
+    (intakeForm.challenges === "other" && !customIntake.challenges.trim()) ||
+    (intakeForm.preferredStyle === "other" && !customIntake.preferredStyle.trim()) ||
+    (intakeForm.availability === "other" && !customIntake.availability.trim());
 
   const consentToProposal = async () => {
     if (!data || !proposal) return;
@@ -157,13 +250,61 @@ const Documents = () => {
           <h3 className="text-lg text-foreground">Client Intake Form</h3>
           <p className="text-sm text-muted-foreground">Complete this online intake form to continue onboarding. Submission automatically flags your profile for coach review.</p>
 
-          <textarea value={intakeForm.goals} onChange={(e) => setIntakeForm({ ...intakeForm, goals: e.target.value })} rows={3} className="w-full rounded border border-input bg-background px-3 py-2 text-sm" placeholder="Your top coaching goals" />
-          <textarea value={intakeForm.challenges} onChange={(e) => setIntakeForm({ ...intakeForm, challenges: e.target.value })} rows={3} className="w-full rounded border border-input bg-background px-3 py-2 text-sm" placeholder="Current challenges you want to address" />
-          <textarea value={intakeForm.history} onChange={(e) => setIntakeForm({ ...intakeForm, history: e.target.value })} rows={2} className="w-full rounded border border-input bg-background px-3 py-2 text-sm" placeholder="Any previous coaching or relevant background (optional)" />
+          <div className="space-y-3">
+            <label className="text-sm text-muted-foreground">Your top coaching goals</label>
+            <select value={intakeForm.goals} onChange={(e) => setIntakeForm({ ...intakeForm, goals: e.target.value })} className="w-full rounded border border-input bg-background px-3 py-2 text-sm">
+              <option value="">Select one</option>
+              {goalOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+            {intakeForm.goals === "other" && (
+              <textarea value={customIntake.goals} onChange={(e) => setCustomIntake({ ...customIntake, goals: e.target.value })} rows={2} className="w-full rounded border border-input bg-background px-3 py-2 text-sm" placeholder="Please specify your goal" />
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <label className="text-sm text-muted-foreground">Current challenges you want to address</label>
+            <select value={intakeForm.challenges} onChange={(e) => setIntakeForm({ ...intakeForm, challenges: e.target.value })} className="w-full rounded border border-input bg-background px-3 py-2 text-sm">
+              <option value="">Select one</option>
+              {challengeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+            {intakeForm.challenges === "other" && (
+              <textarea value={customIntake.challenges} onChange={(e) => setCustomIntake({ ...customIntake, challenges: e.target.value })} rows={2} className="w-full rounded border border-input bg-background px-3 py-2 text-sm" placeholder="Please specify your challenge" />
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <label className="text-sm text-muted-foreground">Any previous coaching or relevant background (optional)</label>
+            <select value={intakeForm.history} onChange={(e) => setIntakeForm({ ...intakeForm, history: e.target.value })} className="w-full rounded border border-input bg-background px-3 py-2 text-sm">
+              <option value="">Select one</option>
+              {historyOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+            {intakeForm.history === "other" && (
+              <textarea value={customIntake.history} onChange={(e) => setCustomIntake({ ...customIntake, history: e.target.value })} rows={2} className="w-full rounded border border-input bg-background px-3 py-2 text-sm" placeholder="Optional: add your background details" />
+            )}
+          </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <input value={intakeForm.preferredStyle} onChange={(e) => setIntakeForm({ ...intakeForm, preferredStyle: e.target.value })} className="rounded border border-input bg-background px-3 py-2 text-sm" placeholder="Preferred coaching style" />
-            <input value={intakeForm.availability} onChange={(e) => setIntakeForm({ ...intakeForm, availability: e.target.value })} className="rounded border border-input bg-background px-3 py-2 text-sm" placeholder="Availability windows" />
+            <div className="space-y-2">
+              <label className="text-sm text-muted-foreground">Preferred coaching style</label>
+              <select value={intakeForm.preferredStyle} onChange={(e) => setIntakeForm({ ...intakeForm, preferredStyle: e.target.value })} className="w-full rounded border border-input bg-background px-3 py-2 text-sm">
+                <option value="">Select one</option>
+                {styleOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+              {intakeForm.preferredStyle === "other" && (
+                <textarea value={customIntake.preferredStyle} onChange={(e) => setCustomIntake({ ...customIntake, preferredStyle: e.target.value })} rows={2} className="w-full rounded border border-input bg-background px-3 py-2 text-sm" placeholder="Please specify your preferred style" />
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm text-muted-foreground">Availability windows</label>
+              <select value={intakeForm.availability} onChange={(e) => setIntakeForm({ ...intakeForm, availability: e.target.value })} className="w-full rounded border border-input bg-background px-3 py-2 text-sm">
+                <option value="">Select one</option>
+                {availabilityOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+              {intakeForm.availability === "other" && (
+                <textarea value={customIntake.availability} onChange={(e) => setCustomIntake({ ...customIntake, availability: e.target.value })} rows={2} className="w-full rounded border border-input bg-background px-3 py-2 text-sm" placeholder="Please specify your availability" />
+              )}
+            </div>
           </div>
 
           <label className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -171,7 +312,7 @@ const Documents = () => {
             I have reviewed the ICF Code of Ethics and consent to proceed.
           </label>
 
-          <Button type="submit" disabled={savingIntake}>
+          <Button type="submit" disabled={savingIntake || intakeHasMissingRequired}>
             {savingIntake ? "Submitting..." : "Submit Intake Form"}
           </Button>
           <Button type="button" variant="ghost" onClick={() => setShowIntakeEditor(false)}>
