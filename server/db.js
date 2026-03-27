@@ -175,6 +175,26 @@ CREATE TABLE IF NOT EXISTS email_dispatches (
   created_at TIMESTAMPTZ NOT NULL,
   meta JSONB NOT NULL DEFAULT '{}'::jsonb
 );
+
+CREATE TABLE IF NOT EXISTS activity_notifications (
+  id TEXT PRIMARY KEY,
+  audience TEXT NOT NULL CHECK (audience IN ('admin', 'client', 'both')),
+  client_id TEXT REFERENCES clients(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('email', 'sms', 'system')),
+  action_label TEXT,
+  action_path TEXT,
+  created_at TIMESTAMPTZ NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS activity_notification_reads (
+  notification_id TEXT NOT NULL REFERENCES activity_notifications(id) ON DELETE CASCADE,
+  role TEXT NOT NULL CHECK (role IN ('admin', 'client')),
+  client_id TEXT,
+  read_at TIMESTAMPTZ NOT NULL,
+  PRIMARY KEY (notification_id, role, client_id)
+);
 `;
 
 export async function query(text, params = []) {
@@ -298,6 +318,13 @@ async function seedIfEmpty() {
   );
 
   await query(
+    `INSERT INTO activity_notifications (id, audience, client_id, title, message, type, action_label, action_path, created_at)
+     VALUES
+     ('an1','client','c1','Welcome to InnerSprings','Your portal is ready. Complete your next onboarding step from the documents section.','system','Open Documents','/dashboard/documents',NOW()),
+     ('an2','admin','c1','Client Portal Provisioned','A new client account is active and awaiting onboarding review.','system','Open Client','/admin/clients/c1',NOW())`,
+  );
+
+  await query(
     `INSERT INTO payments (id, client_id, session_number, amount, status, date, method) VALUES
      ('p1','c1',1,10000,'paid','2025-11-20','M-Pesa'),
      ('p2','c1',2,10000,'paid','2025-12-04','M-Pesa'),
@@ -370,6 +397,9 @@ export async function initDb() {
   await query("ALTER TABLE consent_agreements ALTER COLUMN signed SET NOT NULL");
   await query("ALTER TABLE consent_agreements ALTER COLUMN status SET NOT NULL");
   await query("ALTER TABLE consent_agreements ALTER COLUMN updated_at SET NOT NULL");
+
+  await query("ALTER TABLE activity_notifications ADD COLUMN IF NOT EXISTS action_label TEXT");
+  await query("ALTER TABLE activity_notifications ADD COLUMN IF NOT EXISTS action_path TEXT");
 
   await seedIfEmpty();
 }

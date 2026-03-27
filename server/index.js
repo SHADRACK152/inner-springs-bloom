@@ -209,6 +209,116 @@ function toCamelConsentAgreement(row) {
   };
 }
 
+function toCamelActivityNotification(row) {
+  return {
+    id: row.id,
+    audience: row.audience,
+    clientId: row.client_id,
+    title: row.title,
+    message: row.message,
+    type: row.type,
+    actionLabel: row.action_label,
+    actionPath: row.action_path,
+    createdAt: row.created_at,
+    read: Boolean(row.read),
+    readAt: row.read_at || null,
+    relatedClientName: row.related_client_name || null,
+  };
+}
+
+async function createActivityNotification({ audience, clientId = null, title, message, type = "system", actionLabel = null, actionPath = null }) {
+  await query(
+    `INSERT INTO activity_notifications (id, audience, client_id, title, message, type, action_label, action_path, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+    [
+      `an_${nanoid(10)}`,
+      audience,
+      clientId,
+      title,
+      message,
+      type,
+      actionLabel,
+      actionPath,
+      new Date().toISOString(),
+    ],
+  );
+}
+
+async function getClientNotificationFeed(clientId) {
+  const result = await query(
+    `SELECT n.*, c.name AS related_client_name,
+            (r.notification_id IS NOT NULL) AS read,
+            r.read_at
+     FROM activity_notifications n
+     LEFT JOIN clients c ON c.id = n.client_id
+     LEFT JOIN activity_notification_reads r
+       ON r.notification_id = n.id AND r.role = 'client' AND r.client_id = $1
+     WHERE (n.audience IN ('client', 'both'))
+       AND (n.client_id IS NULL OR n.client_id = $1)
+     ORDER BY n.created_at DESC`,
+    [clientId],
+  );
+
+  const notifications = result.rows.map(toCamelActivityNotification);
+  const unreadCount = notifications.filter((item) => !item.read).length;
+  return { notifications, unreadCount };
+}
+
+async function getAdminNotificationFeed() {
+  const result = await query(
+    `SELECT n.*, c.name AS related_client_name,
+            (r.notification_id IS NOT NULL) AS read,
+            r.read_at
+     FROM activity_notifications n
+     LEFT JOIN clients c ON c.id = n.client_id
+     LEFT JOIN activity_notification_reads r
+       ON r.notification_id = n.id AND r.role = 'admin' AND r.client_id IS NULL
+     WHERE n.audience IN ('admin', 'both')
+     ORDER BY n.created_at DESC`,
+  );
+
+  const notifications = result.rows.map(toCamelActivityNotification);
+  const unreadCount = notifications.filter((item) => !item.read).length;
+  return { notifications, unreadCount };
+}
+
+async function markNotificationsRead({ role, clientId = null, notificationId = null }) {
+  const now = new Date().toISOString();
+
+  if (notificationId) {
+    const notificationResult = await query("SELECT id FROM activity_notifications WHERE id = $1 LIMIT 1", [notificationId]);
+    if (notificationResult.rowCount === 0) {
+      return false;
+    }
+
+    await query(
+      `INSERT INTO activity_notification_reads (notification_id, role, client_id, read_at)
+       VALUES ($1,$2,$3,$4)
+       ON CONFLICT (notification_id, role, client_id)
+       DO UPDATE SET read_at = EXCLUDED.read_at`,
+      [notificationId, role, clientId, now],
+    );
+    return true;
+  }
+
+  const filterQuery = role === "admin"
+    ? `SELECT id FROM activity_notifications WHERE audience IN ('admin', 'both')`
+    : `SELECT id FROM activity_notifications WHERE audience IN ('client', 'both') AND (client_id IS NULL OR client_id = $1)`;
+  const idsResult = await query(filterQuery, role === "admin" ? [] : [clientId]);
+
+  for (const row of idsResult.rows) {
+    await query(
+      `INSERT INTO activity_notification_reads (notification_id, role, client_id, read_at)
+       VALUES ($1,$2,$3,$4)
+       ON CONFLICT (notification_id, role, client_id)
+       DO UPDATE SET read_at = EXCLUDED.read_at`,
+      [row.id, role, clientId, now],
+    );
+  }
+
+  return true;
+}
+
 function buildDefaultProposal(clientRow, intakeRow) {
   const serviceDefaults = {
     coaching: {
@@ -385,6 +495,42 @@ app.post("/api/auth/admin/login", async (req, res) => {
   });
 });
 
+app.get("/api/notifications/client/:clientId", async (req, res) => {
+  const { clientId } = req.params;
+  const payload = await getClientNotificationFeed(clientId);
+  return res.json(payload);
+});
+
+app.get("/api/notifications/admin", async (_req, res) => {
+  const payload = await getAdminNotificationFeed();
+  return res.json(payload);
+});
+
+app.post("/api/notifications/client/:clientId/read", async (req, res) => {
+  const { clientId } = req.params;
+  const { notificationId, all } = req.body ?? {};
+
+  if (!all && !notificationId) {
+    return res.status(400).json({ message: "Provide notificationId or all=true" });
+  }
+
+  await markNotificationsRead({ role: "client", clientId, notificationId: all ? null : notificationId });
+  const payload = await getClientNotificationFeed(clientId);
+  return res.json(payload);
+});
+
+app.post("/api/notifications/admin/read", async (req, res) => {
+  const { notificationId, all } = req.body ?? {};
+
+  if (!all && !notificationId) {
+    return res.status(400).json({ message: "Provide notificationId or all=true" });
+  }
+
+  await markNotificationsRead({ role: "admin", notificationId: all ? null : notificationId });
+  const payload = await getAdminNotificationFeed();
+  return res.json(payload);
+});
+
 app.get("/api/dashboard/:clientId", async (req, res) => {
   const { clientId } = req.params;
   const clientResult = await query("SELECT * FROM clients WHERE id = $1", [clientId]);
@@ -484,6 +630,16 @@ app.post("/api/dashboard/:clientId/intake-form", async (req, res) => {
     ],
   );
 
+  await createActivityNotification({
+    audience: "admin",
+    clientId,
+    title: "Intake Form Submitted",
+    message: "Client submitted intake form. Coach review is now required.",
+    type: "system",
+    actionLabel: "Review Intake",
+    actionPath: `/admin/clients/${clientId}`,
+  });
+
   return res.status(201).json({ ok: true, coachReviewRequired: true });
 });
 
@@ -557,6 +713,16 @@ app.post("/api/admin/clients/:clientId/intake-form/review", async (req, res) => 
     ],
   );
 
+  await createActivityNotification({
+    audience: "client",
+    clientId,
+    title: "Coach Review Complete",
+    message: "Your intake form has been reviewed. Proposal generation is now in progress.",
+    type: "system",
+    actionLabel: "Open Documents",
+    actionPath: "/dashboard/documents",
+  });
+
   return res.json({ ok: true, coachReviewRequired: false, reviewedAt: now });
 });
 
@@ -605,6 +771,26 @@ app.post("/api/admin/clients/:clientId/proposal", async (req, res) => {
       dueBy,
     ],
   );
+
+  await createActivityNotification({
+    audience: "client",
+    clientId,
+    title: "Coaching Proposal Sent",
+    message: "A customized coaching proposal is now available in your portal for review.",
+    type: "system",
+    actionLabel: "Review Proposal",
+    actionPath: "/dashboard/documents",
+  });
+
+  await createActivityNotification({
+    audience: "admin",
+    clientId,
+    title: "Proposal Published",
+    message: "Proposal has been generated and delivered to the client portal.",
+    type: "system",
+    actionLabel: "Open Client",
+    actionPath: `/admin/clients/${clientId}`,
+  });
 
   await query(
     `INSERT INTO notifications (id, client_id, title, message, type, date, read)
@@ -708,6 +894,16 @@ app.post("/api/dashboard/:clientId/proposals/:proposalId/consent", async (req, r
     );
   });
 
+  await createActivityNotification({
+    audience: "admin",
+    clientId,
+    title: "Client Consented to Proposal",
+    message: "Client clicked I Consent. Coaching agreement generated and signature requested.",
+    type: "system",
+    actionLabel: "Open Client",
+    actionPath: `/admin/clients/${clientId}`,
+  });
+
   return res.status(201).json({
     ok: true,
     agreement: {
@@ -757,6 +953,16 @@ app.post("/api/dashboard/:clientId/agreements/:agreementId/sign", async (req, re
       now.slice(0, 10),
     ],
   );
+
+  await createActivityNotification({
+    audience: "admin",
+    clientId,
+    title: "Agreement Signed",
+    message: `Client signed coaching agreement electronically as ${signatureName}.`,
+    type: "system",
+    actionLabel: "Open Client",
+    actionPath: `/admin/clients/${clientId}`,
+  });
 
   return res.json({ ok: true, signedAt: now, signatureName });
 });
@@ -869,6 +1075,26 @@ app.post("/api/admin/bookings/:bookingId/provision-client", async (req, res) => 
     service: booking.service,
   });
 
+  await createActivityNotification({
+    audience: "client",
+    clientId,
+    title: "Portal Access Granted",
+    message: "Your client portal account is active. Continue onboarding in your documents section.",
+    type: "system",
+    actionLabel: "Open Documents",
+    actionPath: "/dashboard/documents",
+  });
+
+  await createActivityNotification({
+    audience: "admin",
+    clientId,
+    title: "Client Provisioned",
+    message: "New client profile and login credentials were generated from booking.",
+    type: "system",
+    actionLabel: "Open Client",
+    actionPath: `/admin/clients/${clientId}`,
+  });
+
   return res.status(201).json({
     credentials: {
       email: booking.email,
@@ -918,6 +1144,27 @@ app.post("/api/admin/clients/:clientId/sessions", async (req, res) => {
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
     [id, clientId, title, date, time, status, Number(cost), notes || "", achievements || "", Number(sessionNumber), totalSessions],
   );
+
+  await createActivityNotification({
+    audience: "client",
+    clientId,
+    title: "Session Updated",
+    message: `A session (${title}) has been added to your journey plan.`,
+    type: "system",
+    actionLabel: "View Sessions",
+    actionPath: "/dashboard/sessions",
+  });
+
+  await createActivityNotification({
+    audience: "admin",
+    clientId,
+    title: "Session Added",
+    message: `Session ${title} was created for client ${clientId}.`,
+    type: "system",
+    actionLabel: "Open Client",
+    actionPath: `/admin/clients/${clientId}`,
+  });
+
   return res.status(201).json({ id });
 });
 
@@ -934,6 +1181,17 @@ app.post("/api/admin/clients/:clientId/documents", async (req, res) => {
      VALUES ($1,$2,$3,$4,$5,$6,$7)`,
     [id, clientId, title, type, sessionRelated || null, new Date().toISOString().slice(0, 10), fileSize || "N/A"],
   );
+
+  await createActivityNotification({
+    audience: "both",
+    clientId,
+    title: "New Document Available",
+    message: `${title} has been added to the portal documents.`,
+    type: "system",
+    actionLabel: "Open Documents",
+    actionPath: "/dashboard/documents",
+  });
+
   return res.status(201).json({ id });
 });
 
@@ -950,6 +1208,17 @@ app.post("/api/admin/clients/:clientId/payments", async (req, res) => {
      VALUES ($1,$2,$3,$4,'paid',$5,$6)`,
     [id, clientId, Number(sessionNumber), Number(amount), date, method],
   );
+
+  await createActivityNotification({
+    audience: "both",
+    clientId,
+    title: "Payment Recorded",
+    message: `Payment for session ${sessionNumber} has been recorded.`,
+    type: "system",
+    actionLabel: "View Payments",
+    actionPath: "/dashboard/payments",
+  });
+
   return res.status(201).json({ id });
 });
 
@@ -966,6 +1235,17 @@ app.post("/api/admin/clients/:clientId/notifications", async (req, res) => {
      VALUES ($1,$2,$3,$4,$5,$6,false)`,
     [id, clientId, title, message, type, new Date().toISOString().slice(0, 10)],
   );
+
+  await createActivityNotification({
+    audience: "client",
+    clientId,
+    title,
+    message,
+    type,
+    actionLabel: "Open Notifications",
+    actionPath: "/dashboard/notifications",
+  });
+
   return res.status(201).json({ id });
 });
 
@@ -1008,6 +1288,15 @@ app.post("/api/bookings", async (req, res) => {
       booking.createdAt,
     ],
   );
+
+  await createActivityNotification({
+    audience: "admin",
+    title: "New Booking Request",
+    message: `${booking.name} submitted a ${booking.service} booking request for ${booking.date} at ${booking.time}.`,
+    type: "system",
+    actionLabel: "Open Bookings",
+    actionPath: "/admin/bookings",
+  });
 
   return res.status(201).json({ booking });
 });

@@ -18,6 +18,7 @@ import {
   Shield,
 } from "lucide-react";
 import { clearSession, getSession } from "@/lib/auth";
+import NotificationBell from "@/components/NotificationBell";
 
 const sidebarLinks = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin" },
@@ -94,6 +95,7 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
           <button className="lg:hidden" onClick={() => setSidebarOpen(true)}><Menu className="h-5 w-5" /></button>
           <div className="flex-1" />
           <div className="flex items-center gap-3">
+            <NotificationBell fullPagePath="/admin/notifications" />
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-navy text-xs font-bold text-navy-foreground">{initials}</div>
             <span className="hidden text-sm font-medium text-foreground sm:block">{displayName}</span>
           </div>

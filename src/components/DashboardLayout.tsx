@@ -5,6 +5,7 @@ import {
   Bell, Settings, LogOut, Menu, X
 } from "lucide-react";
 import { clearSession, getSession } from "@/lib/auth";
+import NotificationBell from "@/components/NotificationBell";
 
 const sidebarLinks = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
@@ -93,10 +94,7 @@ const DashboardLayout = ({ children }: { children: ReactNode }) => {
           </button>
           <div className="flex-1" />
           <div className="flex items-center gap-3">
-            <Link to="/dashboard/notifications" className="relative">
-              <Bell className="h-5 w-5 text-muted-foreground" />
-              <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] text-destructive-foreground">1</span>
-            </Link>
+            <NotificationBell fullPagePath="/dashboard/notifications" />
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
               {initials}
             </div>

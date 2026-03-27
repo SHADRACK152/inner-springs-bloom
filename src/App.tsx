@@ -30,13 +30,13 @@ import AdminBookings from "./pages/admin/AdminBookings.tsx";
 import {
   AdminDocumentsPage,
   AdminJourneyPage,
-  AdminNotificationsPage,
   AdminPaymentsPage,
   AdminResourcesPage,
   AdminSessionsPage,
 } from "./pages/admin/AdminClientWorkstream.tsx";
 import AdminReports from "./pages/admin/AdminReports.tsx";
 import AdminSettings from "./pages/admin/AdminSettings.tsx";
+import AdminNotifications from "./pages/admin/AdminNotifications.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -82,7 +82,7 @@ const App = () => (
           <Route path="/admin/documents" element={<ProtectedRoute role="admin"><AdminDocumentsPage /></ProtectedRoute>} />
           <Route path="/admin/resources" element={<ProtectedRoute role="admin"><AdminResourcesPage /></ProtectedRoute>} />
           <Route path="/admin/payments" element={<ProtectedRoute role="admin"><AdminPaymentsPage /></ProtectedRoute>} />
-          <Route path="/admin/notifications" element={<ProtectedRoute role="admin"><AdminNotificationsPage /></ProtectedRoute>} />
+          <Route path="/admin/notifications" element={<ProtectedRoute role="admin"><AdminNotifications /></ProtectedRoute>} />
           <Route path="/admin/clients" element={<ProtectedRoute role="admin"><AdminClients /></ProtectedRoute>} />
           <Route path="/admin/clients/:clientId" element={<ProtectedRoute role="admin"><AdminClientDetails /></ProtectedRoute>} />
           <Route path="/admin/bookings" element={<ProtectedRoute role="admin"><AdminBookings /></ProtectedRoute>} />
