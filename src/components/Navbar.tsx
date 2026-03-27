@@ -48,7 +48,8 @@ const Navbar = () => {
           <Link to="/about" className={linkClass("/about")}>About</Link>
           <Link to="/resources" className={linkClass("/resources")}>Resources</Link>
           <Link to="/contact" className={linkClass("/contact")}>Contact</Link>
-          <Link to="/portal" className={`${linkClass("/portal")} border border-primary px-4 py-2 rounded-lg`}>Client Log In</Link>
+          <Link to="/login" className={`${linkClass("/login")} border border-primary px-4 py-2 rounded-lg`}>Client Log In</Link>
+          <Link to="/admin/login" className={linkClass("/admin/login")}>Admin Login</Link>
           <Link to="/book" className="btn-primary text-sm">Book a Session</Link>
         </div>
 
@@ -69,7 +70,8 @@ const Navbar = () => {
           <Link to="/about" onClick={() => setMobileOpen(false)} className="block text-[15px] font-medium py-2">About</Link>
           <Link to="/resources" onClick={() => setMobileOpen(false)} className="block text-[15px] font-medium py-2">Resources</Link>
           <Link to="/contact" onClick={() => setMobileOpen(false)} className="block text-[15px] font-medium py-2">Contact</Link>
-          <Link to="/portal" onClick={() => setMobileOpen(false)} className="block text-[15px] font-medium py-2 text-primary">Client Log In</Link>
+          <Link to="/login" onClick={() => setMobileOpen(false)} className="block text-[15px] font-medium py-2 text-primary">Client Log In</Link>
+          <Link to="/admin/login" onClick={() => setMobileOpen(false)} className="block text-[15px] font-medium py-2">Admin Login</Link>
           <Link to="/book" onClick={() => setMobileOpen(false)} className="btn-primary text-sm inline-block text-center w-full mt-2">Book a Session</Link>
         </div>
       )}

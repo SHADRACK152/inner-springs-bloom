@@ -6,6 +6,7 @@ import { MapPin, Phone, Mail, Clock } from "lucide-react";
 import { useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
+import { api } from "@/lib/api";
 
 const contactSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(100),
@@ -31,10 +32,16 @@ const Contact = () => {
       return;
     }
     setSending(true);
-    await new Promise(r => setTimeout(r, 1000));
-    toast.success("Message sent successfully! We'll get back to you soon.");
-    setForm({ name: "", email: "", phone: "", service: "", message: "" });
-    setSending(false);
+    try {
+      await api.post("/api/contact-messages", form);
+      toast.success("Message sent successfully! We'll get back to you soon.");
+      setForm({ name: "", email: "", phone: "", service: "", message: "" });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to send message";
+      toast.error(message);
+    } finally {
+      setSending(false);
+    }
   };
 
   const inputClass = "w-full px-4 py-3 rounded-lg bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-shadow border border-input";

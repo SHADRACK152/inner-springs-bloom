@@ -4,6 +4,7 @@ import WhatsAppButton from "@/components/WhatsAppButton";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Check } from "lucide-react";
+import { api } from "@/lib/api";
 
 const BookSession = () => {
   const [step, setStep] = useState(1);
@@ -11,7 +12,7 @@ const BookSession = () => {
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [form, setForm] = useState({ name: "", email: "", phone: "", notes: "" });
-  const [paymentMethod, setPaymentMethod] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const services = [
     { id: "mental-health", label: "Mental Health Services", desc: "Book a free intake assessment with a licensed counselor." },
@@ -21,9 +22,23 @@ const BookSession = () => {
 
   const times = ["9:00 AM", "10:00 AM", "11:00 AM", "2:00 PM", "3:00 PM", "4:00 PM"];
 
-  const handleSubmit = () => {
-    toast.success("Assessment booked successfully! Check your email for confirmation details.");
-    setStep(5);
+  const handleSubmit = async () => {
+    try {
+      setSubmitting(true);
+      await api.post("/api/bookings", {
+        service,
+        date,
+        time,
+        ...form,
+      });
+      toast.success("Assessment booked successfully! Check your email for confirmation details.");
+      setStep(5);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to complete booking";
+      toast.error(message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -171,7 +186,9 @@ const BookSession = () => {
                   </div>
                   <div className="flex gap-3">
                     <button onClick={() => setStep(3)} className="btn-outline flex-1">Back</button>
-                    <button onClick={handleSubmit} className="btn-primary flex-1">Confirm Booking</button>
+                    <button onClick={handleSubmit} className="btn-primary flex-1" disabled={submitting}>
+                      {submitting ? "Confirming..." : "Confirm Booking"}
+                    </button>
                   </div>
                 </div>
               )}

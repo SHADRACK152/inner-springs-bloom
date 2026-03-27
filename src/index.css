@@ -27,9 +27,24 @@
     --ring: 191 55% 36%;
     --radius: 8px;
     --navy: 200 37% 25%;
+    --navy-foreground: 0 0% 100%;
     --olive: 80 60% 35%;
     --terracotta: 27 55% 64%;
     --cream: 34 33% 96%;
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --sidebar-background: 200 35% 25%;
+    --sidebar-foreground: 36 33% 95%;
+    --sidebar-primary: 189 54% 36%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 200 30% 30%;
+    --sidebar-accent-foreground: 36 33% 95%;
+    --sidebar-border: 200 30% 32%;
+    --sidebar-ring: 189 54% 36%;
+    --sidebar-muted: 200 20% 40%;
 
     --shadow-card: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
     --shadow-card-hover: 0 4px 12px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06);
@@ -130,6 +145,16 @@
     font-family: var(--font-serif);
     font-style: italic;
     font-size: 19px;
+  }
+}
+
+@layer utilities {
+  .font-serif-brand {
+    font-family: var(--font-serif);
+  }
+
+  .font-sans-brand {
+    font-family: var(--font-sans);
   }
 }
 
