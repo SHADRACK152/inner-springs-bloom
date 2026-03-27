@@ -209,6 +209,62 @@ function toCamelConsentAgreement(row) {
   };
 }
 
+function buildDefaultProposal(clientRow, intakeRow) {
+  const serviceDefaults = {
+    coaching: {
+      durationSessions: 12,
+      frequency: "weekly",
+      defaultObjectives:
+        "Clarify leadership priorities, strengthen communication, and improve execution accountability.",
+      defaultOutcomes:
+        "Improved leadership confidence, better team conversations, and measurable progress on priority goals.",
+      sessionPrice: 10000,
+    },
+    "mental-health": {
+      durationSessions: 8,
+      frequency: "bi-weekly",
+      defaultObjectives:
+        "Stabilize emotional wellbeing, build practical coping tools, and improve day-to-day functioning.",
+      defaultOutcomes:
+        "Reduced emotional distress, stronger coping routines, and improved resilience in daily life.",
+      sessionPrice: 10000,
+    },
+    training: {
+      durationSessions: 6,
+      frequency: "weekly",
+      defaultObjectives:
+        "Develop practical skills and behavior change for sustained workplace performance.",
+      defaultOutcomes:
+        "Clear skill adoption, improved team effectiveness, and measurable performance improvements.",
+      sessionPrice: 10000,
+    },
+  };
+
+  const service = clientRow?.service || "coaching";
+  const defaults = serviceDefaults[service] || serviceDefaults.coaching;
+  const durationSessions = Number(clientRow?.total_sessions) || defaults.durationSessions;
+  const investment = Number(clientRow?.total_cost) || durationSessions * defaults.sessionPrice;
+
+  const intakeGoals = intakeRow?.goals?.trim();
+  const intakeChallenges = intakeRow?.challenges?.trim();
+
+  const objectives = intakeGoals
+    ? `Support the client to achieve the following goals: ${intakeGoals}`
+    : defaults.defaultObjectives;
+
+  const expectedOutcomes = intakeChallenges
+    ? `Address key challenges (${intakeChallenges}) while delivering measurable progress across confidence, performance, and accountability.`
+    : defaults.defaultOutcomes;
+
+  return {
+    objectives,
+    durationSessions,
+    frequency: defaults.frequency,
+    investment,
+    expectedOutcomes,
+  };
+}
+
 function buildWelcomeEmail({ name, email, password, clientId, service }) {
   const portalUrl = process.env.CLIENT_PORTAL_URL || "https://inner-springs-bloom-production.up.railway.app/login";
   const subject = "Welcome to InnerSprings Client Portal";
@@ -508,15 +564,23 @@ app.post("/api/admin/clients/:clientId/proposal", async (req, res) => {
   const { clientId } = req.params;
   const { objectives, durationSessions, frequency, investment, expectedOutcomes } = req.body ?? {};
 
-  if (!objectives || !durationSessions || !frequency || !investment || !expectedOutcomes) {
-    return res.status(400).json({
-      message: "Missing required fields: objectives, durationSessions, frequency, investment, expectedOutcomes",
-    });
+  const [clientResult, intakeResult] = await Promise.all([
+    query("SELECT * FROM clients WHERE id = $1 LIMIT 1", [clientId]),
+    query("SELECT * FROM intake_forms WHERE client_id = $1 LIMIT 1", [clientId]),
+  ]);
+
+  const clientRow = clientResult.rows[0];
+  if (!clientRow) {
+    return res.status(404).json({ message: "Client not found" });
   }
 
-  if (!["weekly", "bi-weekly"].includes(frequency)) {
-    return res.status(400).json({ message: "frequency must be weekly or bi-weekly" });
-  }
+  const proposalDefaults = buildDefaultProposal(clientRow, intakeResult.rows[0] || null);
+
+  const resolvedObjectives = (objectives || "").trim() || proposalDefaults.objectives;
+  const resolvedDurationSessions = Number(durationSessions) || proposalDefaults.durationSessions;
+  const resolvedFrequency = ["weekly", "bi-weekly"].includes(frequency) ? frequency : proposalDefaults.frequency;
+  const resolvedInvestment = Number(investment) || proposalDefaults.investment;
+  const resolvedExpectedOutcomes = (expectedOutcomes || "").trim() || proposalDefaults.expectedOutcomes;
 
   const now = new Date();
   const dueBy = new Date(now.getTime() + 48 * 60 * 60 * 1000).toISOString();
@@ -532,11 +596,11 @@ app.post("/api/admin/clients/:clientId/proposal", async (req, res) => {
       proposalId,
       clientId,
       null,
-      objectives,
-      Number(durationSessions),
-      frequency,
-      Number(investment),
-      expectedOutcomes,
+      resolvedObjectives,
+      resolvedDurationSessions,
+      resolvedFrequency,
+      resolvedInvestment,
+      resolvedExpectedOutcomes,
       generatedAt,
       dueBy,
     ],
@@ -559,11 +623,11 @@ app.post("/api/admin/clients/:clientId/proposal", async (req, res) => {
     proposal: {
       id: proposalId,
       clientId,
-      objectives,
-      durationSessions: Number(durationSessions),
-      frequency,
-      investment: Number(investment),
-      expectedOutcomes,
+      objectives: resolvedObjectives,
+      durationSessions: resolvedDurationSessions,
+      frequency: resolvedFrequency,
+      investment: resolvedInvestment,
+      expectedOutcomes: resolvedExpectedOutcomes,
       status: "sent",
       generatedAt,
       dueBy,

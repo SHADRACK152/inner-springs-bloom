@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import AdminLayout from "@/components/AdminLayout";
@@ -117,6 +117,25 @@ const AdminClientDetails = () => {
     expectedOutcomes: "",
   });
 
+  const getSuggestedProposalForm = () => {
+    const durationSessions = String(data?.client.totalSessions || 12);
+    const investment = String(data?.client.totalCost || Number(durationSessions) * 10000);
+    const objectives = data?.intakeForm?.goals
+      ? `Support the client to achieve the following goals: ${data.intakeForm.goals}`
+      : "Clarify leadership priorities, strengthen communication, and improve execution accountability.";
+    const expectedOutcomes = data?.intakeForm?.challenges
+      ? `Address key challenges (${data.intakeForm.challenges}) while delivering measurable progress across confidence, performance, and accountability.`
+      : "Improved leadership confidence, better team conversations, and measurable progress on priority goals.";
+
+    return {
+      objectives,
+      durationSessions,
+      frequency: data?.client.service === "mental-health" ? "bi-weekly" : "weekly",
+      investment,
+      expectedOutcomes,
+    };
+  };
+
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["admin-client-details", clientId],
     queryFn: () => api.get(`/api/admin/clients/${clientId}`) as Promise<ClientDetailsPayload>,
@@ -126,6 +145,16 @@ const AdminClientDetails = () => {
   const pendingAmount = useMemo(() => {
     if (!data) return 0;
     return data.client.totalCost - data.client.amountPaid;
+  }, [data]);
+
+  useEffect(() => {
+    if (!data) return;
+    setProposalForm((prev) => {
+      if (prev.objectives || prev.expectedOutcomes) {
+        return prev;
+      }
+      return getSuggestedProposalForm();
+    });
   }, [data]);
 
   const refreshAll = async () => {
@@ -215,6 +244,17 @@ const AdminClientDetails = () => {
     }
   };
 
+  const generateDefaultProposal = async () => {
+    if (!clientId) return;
+    try {
+      await api.post(`/api/admin/clients/${clientId}/proposal`, {} as Record<string, never>);
+      toast.success("Default coaching proposal generated and sent to client portal");
+      await refreshAll();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to generate default proposal");
+    }
+  };
+
   if (isLoading || !data) {
     return (
       <AdminLayout>
@@ -297,6 +337,10 @@ const AdminClientDetails = () => {
         <div className="grid gap-6 lg:grid-cols-2">
           <form onSubmit={generateProposal} className="rounded-lg border border-border bg-card p-5 space-y-3">
             <h3 className="text-lg text-navy">Step 5: Generate Coaching Proposal</h3>
+            <Button type="button" variant="secondary" onClick={generateDefaultProposal} disabled={!data.intakeForm || data.intakeForm.status !== "reviewed"}>
+              Generate Default Proposal (One Click)
+            </Button>
+            <p className="text-xs text-muted-foreground">This uses your default template automatically. Edit below only if you want a custom version.</p>
             <textarea value={proposalForm.objectives} onChange={(e) => setProposalForm({ ...proposalForm, objectives: e.target.value })} className="w-full rounded border border-input bg-background px-3 py-2 text-sm" rows={3} placeholder="Coaching objectives" />
             <textarea value={proposalForm.expectedOutcomes} onChange={(e) => setProposalForm({ ...proposalForm, expectedOutcomes: e.target.value })} className="w-full rounded border border-input bg-background px-3 py-2 text-sm" rows={3} placeholder="Expected outcomes" />
             <div className="grid grid-cols-2 gap-3">
@@ -307,6 +351,7 @@ const AdminClientDetails = () => {
               </select>
             </div>
             <input value={proposalForm.investment} onChange={(e) => setProposalForm({ ...proposalForm, investment: e.target.value })} type="number" className="w-full rounded border border-input bg-background px-3 py-2 text-sm" placeholder="Investment (KES)" />
+            <Button type="button" variant="outline" onClick={() => setProposalForm(getSuggestedProposalForm())}>Use Suggested Defaults</Button>
             <Button type="submit" disabled={!data.intakeForm || data.intakeForm.status !== "reviewed"}>Generate Proposal</Button>
             {(!data.intakeForm || data.intakeForm.status !== "reviewed") && (
               <p className="text-xs text-muted-foreground">Review intake form first before generating a proposal.</p>
