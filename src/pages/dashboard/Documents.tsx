@@ -1,9 +1,9 @@
 import DashboardLayout from "@/components/DashboardLayout";
-import { Download, FileText, FileCheck, FileSpreadsheet, Award } from "lucide-react";
+import { Download, Eye, FileText, FileCheck, FileSpreadsheet, Award } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { useEffect, useState } from "react";
-import { api } from "@/lib/api";
+import { api, API_URL } from "@/lib/api";
 import { toast } from "sonner";
 
 const iconMap = { report: FileText, agreement: FileCheck, certificate: Award, assessment: FileSpreadsheet };
@@ -66,6 +66,8 @@ const Documents = () => {
   const [savingIntake, setSavingIntake] = useState(false);
   const [showIntakeEditor, setShowIntakeEditor] = useState(false);
   const [showEthics, setShowEthics] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewTitle, setPreviewTitle] = useState("");
   const [consenting, setConsenting] = useState(false);
   const [signing, setSigning] = useState(false);
   const [signatureName, setSignatureName] = useState("");
@@ -118,6 +120,7 @@ const Documents = () => {
   const intake = data?.intakeForm;
   const proposal = data?.proposal;
   const agreement = data?.consentAgreement;
+  const agreementDocument = data?.documents.find((doc) => doc.id === agreement?.agreementDocId);
   const ethicsDoc = data?.documents.find((doc) => doc.title.toLowerCase().includes("icf code of ethics"));
   const onboarding = data?.onboarding || {
     portalAccess: true,
@@ -198,6 +201,25 @@ const Documents = () => {
     } finally {
       setSigning(false);
     }
+  };
+
+  const toAbsoluteDocumentUrl = (path: string) => (API_URL ? `${API_URL}${path}` : path);
+
+  const openPreview = (title: string, fileUrl: string | null) => {
+    if (!fileUrl) {
+      toast.error("This document has no generated file yet.");
+      return;
+    }
+    setPreviewTitle(title);
+    setPreviewUrl(toAbsoluteDocumentUrl(fileUrl));
+  };
+
+  const downloadDocument = (downloadUrl: string | null) => {
+    if (!downloadUrl) {
+      toast.error("This document has no generated file yet.");
+      return;
+    }
+    window.open(toAbsoluteDocumentUrl(downloadUrl), "_blank", "noopener,noreferrer");
   };
 
   if (isLoading || !data) {
@@ -388,7 +410,29 @@ const Documents = () => {
             )}
 
             {agreement.signed && (
-              <p className="text-sm text-secondary font-medium">Signed by {agreement.signatureName} on {agreement.signedAt ? new Date(agreement.signedAt).toLocaleString() : "-"}</p>
+              <>
+                <p className="text-sm text-secondary font-medium">Signed by {agreement.signatureName} on {agreement.signedAt ? new Date(agreement.signedAt).toLocaleString() : "-"}</p>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => openPreview("Signed Coaching Agreement", agreementDocument?.fileUrl || null)}
+                  >
+                    <Eye className="h-3 w-3" /> Open In App
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => downloadDocument(agreementDocument?.downloadUrl || null)}
+                  >
+                    <Download className="h-3 w-3" /> Download PDF
+                  </Button>
+                </div>
+              </>
             )}
           </>
         )}
@@ -413,13 +457,46 @@ const Documents = () => {
               {doc.sessionRelated && (
                 <p className="mt-1 text-xs text-muted-foreground">Related to Session {doc.sessionRelated}</p>
               )}
-              <Button variant="outline" size="sm" className="mt-3 w-full gap-2">
-                <Download className="h-3 w-3" /> Download
-              </Button>
+              <div className="mt-3 flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full gap-2"
+                  onClick={() => openPreview(doc.title, doc.fileUrl)}
+                  disabled={!doc.hasFile}
+                >
+                  <Eye className="h-3 w-3" /> Open
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full gap-2"
+                  onClick={() => downloadDocument(doc.downloadUrl)}
+                  disabled={!doc.hasFile}
+                >
+                  <Download className="h-3 w-3" /> Download
+                </Button>
+              </div>
             </div>
           );
         })}
       </div>
+
+      {previewUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="flex h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg border border-border bg-background shadow-xl">
+            <div className="flex items-center justify-between border-b border-border px-4 py-3">
+              <h3 className="text-sm font-semibold text-foreground">{previewTitle}</h3>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setPreviewUrl(null)}>
+                Close
+              </Button>
+            </div>
+            <iframe src={previewUrl} title={previewTitle} className="h-full w-full bg-white" />
+          </div>
+        </div>
+      )}
     </div>
   </DashboardLayout>
   );

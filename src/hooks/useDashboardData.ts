@@ -37,6 +37,9 @@ export interface DashboardPayload {
     sessionRelated: number | null;
     dateAdded: string;
     fileSize: string;
+    hasFile: boolean;
+    fileUrl: string | null;
+    downloadUrl: string | null;
   }>;
   resources: Array<{
     id: string;

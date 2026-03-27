@@ -4,6 +4,8 @@ import cors from "cors";
 import { nanoid } from "nanoid";
 import path from "path";
 import { fileURLToPath } from "url";
+import { PassThrough } from "node:stream";
+import PDFDocument from "pdfkit";
 import { initDb, pingDb, query, withTransaction } from "./db.js";
 
 const app = express();
@@ -52,6 +54,31 @@ app.get("/api/health", async (_req, res) => {
   }
 });
 
+app.get("/api/documents/:documentId/file", async (req, res) => {
+  const { documentId } = req.params;
+  const isDownload = req.query.download === "1";
+
+  const result = await query(
+    `SELECT gd.mime_type, gd.content_base64, gd.title
+     FROM generated_documents gd
+     WHERE gd.document_id = $1
+     LIMIT 1`,
+    [documentId],
+  );
+
+  const row = result.rows[0];
+  if (!row) {
+    return res.status(404).json({ message: "Generated file not found for this document" });
+  }
+
+  const normalizedName = String(row.title || "document").replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+  const fileName = `${normalizedName || "document"}.pdf`;
+
+  res.setHeader("Content-Type", row.mime_type || "application/pdf");
+  res.setHeader("Content-Disposition", `${isDownload ? "attachment" : "inline"}; filename=\"${fileName}\"`);
+  return res.send(Buffer.from(row.content_base64, "base64"));
+});
+
 function toCamelClient(row) {
   return {
     id: row.id,
@@ -93,7 +120,51 @@ function toCamelDocument(row) {
     sessionRelated: row.session_related,
     dateAdded: row.date_added,
     fileSize: row.file_size,
+    hasFile: Boolean(row.has_file),
+    fileUrl: row.has_file ? `/api/documents/${row.id}/file` : null,
+    downloadUrl: row.has_file ? `/api/documents/${row.id}/file?download=1` : null,
   };
+}
+
+function renderAgreementPdfBuffer({ clientName, clientEmail, proposal, signedAt }) {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ size: "A4", margin: 50 });
+    const stream = new PassThrough();
+    const chunks = [];
+
+    stream.on("data", (chunk) => chunks.push(chunk));
+    stream.on("end", () => resolve(Buffer.concat(chunks)));
+    stream.on("error", reject);
+
+    doc.pipe(stream);
+
+    doc.fontSize(20).text("InnerSprings Coaching Agreement", { align: "center" });
+    doc.moveDown();
+    doc.fontSize(11).text(`Client Name: ${clientName}`);
+    doc.text(`Client Email: ${clientEmail}`);
+    doc.text(`Date: ${new Date(signedAt).toLocaleString()}`);
+    doc.moveDown();
+
+    doc.fontSize(12).text("Agreement Summary", { underline: true });
+    doc.moveDown(0.5);
+    doc.fontSize(11).text(`Coaching Objectives: ${proposal.objectives}`);
+    doc.moveDown(0.4);
+    doc.text(`Duration: ${proposal.duration_sessions} sessions`);
+    doc.text(`Frequency: ${proposal.frequency}`);
+    doc.text(`Investment: KES ${Number(proposal.investment).toLocaleString()}`);
+    doc.moveDown(0.4);
+    doc.text(`Expected Outcomes: ${proposal.expected_outcomes}`);
+    doc.moveDown();
+
+    doc.text("By signing, the client confirms consent to proceed with coaching under the above terms.");
+    doc.moveDown();
+    doc.text("Digital Signature", { underline: true });
+    doc.moveDown(0.5);
+    doc.text(`Signed by: ${clientName}`);
+    doc.text(`Signature timestamp: ${new Date(signedAt).toLocaleString()}`);
+
+    doc.end();
+  });
 }
 
 function toCamelNotification(row) {
@@ -541,7 +612,14 @@ app.get("/api/dashboard/:clientId", async (req, res) => {
 
   const [sessions, documents, notifications, payments, resources, intakeForm, proposalResult, consentAgreementResult] = await Promise.all([
     query("SELECT * FROM sessions WHERE client_id = $1 ORDER BY session_number", [clientId]),
-    query("SELECT * FROM documents WHERE client_id = $1 ORDER BY date_added DESC", [clientId]),
+    query(
+      `SELECT d.*, (gd.document_id IS NOT NULL) AS has_file
+       FROM documents d
+       LEFT JOIN generated_documents gd ON gd.document_id = d.id
+       WHERE d.client_id = $1
+       ORDER BY d.date_added DESC`,
+      [clientId],
+    ),
     query("SELECT * FROM notifications WHERE client_id = $1 ORDER BY date DESC", [clientId]),
     query("SELECT * FROM payments WHERE client_id = $1 ORDER BY session_number", [clientId]),
     query("SELECT * FROM resources ORDER BY date_added DESC"),
@@ -659,7 +737,14 @@ app.get("/api/admin/clients/:clientId", async (req, res) => {
   const [userResult, sessions, documents, notifications, payments, bookingResult, intakeFormResult, proposalResult, consentAgreementResult] = await Promise.all([
     query("SELECT id, name, email, phone, role FROM users WHERE client_id = $1 LIMIT 1", [clientId]),
     query("SELECT * FROM sessions WHERE client_id = $1 ORDER BY session_number", [clientId]),
-    query("SELECT * FROM documents WHERE client_id = $1 ORDER BY date_added DESC", [clientId]),
+    query(
+      `SELECT d.*, (gd.document_id IS NOT NULL) AS has_file
+       FROM documents d
+       LEFT JOIN generated_documents gd ON gd.document_id = d.id
+       WHERE d.client_id = $1
+       ORDER BY d.date_added DESC`,
+      [clientId],
+    ),
     query("SELECT * FROM notifications WHERE client_id = $1 ORDER BY date DESC", [clientId]),
     query("SELECT * FROM payments WHERE client_id = $1 ORDER BY session_number", [clientId]),
     query("SELECT * FROM bookings WHERE converted_client_id = $1 ORDER BY reviewed_at DESC LIMIT 1", [clientId]),
@@ -922,8 +1007,34 @@ app.post("/api/dashboard/:clientId/agreements/:agreementId/sign", async (req, re
     return res.status(400).json({ message: "Missing required field: signatureName" });
   }
 
+  const agreementResult = await query(
+    "SELECT * FROM consent_agreements WHERE id = $1 AND client_id = $2 LIMIT 1",
+    [agreementId, clientId],
+  );
+  const agreement = agreementResult.rows[0];
+  if (!agreement) {
+    return res.status(404).json({ message: "Agreement not found" });
+  }
+
+  const [proposalResult, clientResult] = await Promise.all([
+    query("SELECT * FROM coaching_proposals WHERE id = $1 AND client_id = $2 LIMIT 1", [agreement.proposal_id, clientId]),
+    query("SELECT * FROM clients WHERE id = $1 LIMIT 1", [clientId]),
+  ]);
+  const proposal = proposalResult.rows[0];
+  const client = clientResult.rows[0];
+
+  if (!proposal || !client || !agreement.agreement_doc_id) {
+    return res.status(400).json({ message: "Agreement is missing proposal, client, or document linkage" });
+  }
+
   const now = new Date().toISOString();
   const signatureValue = `signed:${signatureName}:${now}`;
+  const pdfBuffer = await renderAgreementPdfBuffer({
+    clientName: signatureName,
+    clientEmail: client.email,
+    proposal,
+    signedAt: now,
+  });
 
   const result = await query(
     `UPDATE consent_agreements
@@ -940,6 +1051,33 @@ app.post("/api/dashboard/:clientId/agreements/:agreementId/sign", async (req, re
   if (result.rowCount === 0) {
     return res.status(404).json({ message: "Agreement not found" });
   }
+
+  await query(
+    `INSERT INTO generated_documents (
+       id, document_id, client_id, title, mime_type, content_base64, file_size_bytes, created_at
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+     ON CONFLICT (document_id) DO UPDATE
+       SET title = EXCLUDED.title,
+           mime_type = EXCLUDED.mime_type,
+           content_base64 = EXCLUDED.content_base64,
+           file_size_bytes = EXCLUDED.file_size_bytes,
+           created_at = EXCLUDED.created_at`,
+    [
+      `gd_${nanoid(10)}`,
+      agreement.agreement_doc_id,
+      clientId,
+      "Coaching Agreement",
+      "application/pdf",
+      pdfBuffer.toString("base64"),
+      pdfBuffer.length,
+      now,
+    ],
+  );
+
+  await query(
+    "UPDATE documents SET file_size = $2 WHERE id = $1",
+    [agreement.agreement_doc_id, `${Math.max(1, Math.round(pdfBuffer.length / 1024))} KB`],
+  );
 
   await query(
     `INSERT INTO notifications (id, client_id, title, message, type, date, read)

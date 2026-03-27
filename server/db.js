@@ -176,6 +176,17 @@ CREATE TABLE IF NOT EXISTS email_dispatches (
   meta JSONB NOT NULL DEFAULT '{}'::jsonb
 );
 
+CREATE TABLE IF NOT EXISTS generated_documents (
+  id TEXT PRIMARY KEY,
+  document_id TEXT NOT NULL UNIQUE REFERENCES documents(id) ON DELETE CASCADE,
+  client_id TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  mime_type TEXT NOT NULL,
+  content_base64 TEXT NOT NULL,
+  file_size_bytes INTEGER NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS activity_notifications (
   id TEXT PRIMARY KEY,
   audience TEXT NOT NULL CHECK (audience IN ('admin', 'client', 'both')),
@@ -400,6 +411,10 @@ export async function initDb() {
 
   await query("ALTER TABLE activity_notifications ADD COLUMN IF NOT EXISTS action_label TEXT");
   await query("ALTER TABLE activity_notifications ADD COLUMN IF NOT EXISTS action_path TEXT");
+
+  await query("ALTER TABLE generated_documents ADD COLUMN IF NOT EXISTS file_size_bytes INTEGER DEFAULT 0");
+  await query("UPDATE generated_documents SET file_size_bytes = COALESCE(file_size_bytes, 0)");
+  await query("ALTER TABLE generated_documents ALTER COLUMN file_size_bytes SET NOT NULL");
 
   await seedIfEmpty();
 }

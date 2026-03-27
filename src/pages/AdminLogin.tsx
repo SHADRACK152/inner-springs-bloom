@@ -11,6 +11,7 @@ const AdminLogin = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -48,8 +49,15 @@ const AdminLogin = () => {
             </div>
             <div>
               <label className="text-sm font-medium text-foreground">Password</label>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+              <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)}
                 className="mt-1 w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm" placeholder="••••••••" />
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                className="mt-2 text-xs text-primary hover:underline"
+              >
+                {showPassword ? "Hide password" : "Show password"}
+              </button>
             </div>
             <Button variant="navy" className="w-full h-11 text-base" type="submit" disabled={submitting}>
               {submitting ? "Signing in..." : "Sign In as Admin"}
