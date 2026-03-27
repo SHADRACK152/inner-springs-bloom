@@ -64,6 +64,60 @@ export interface DashboardPayload {
     date: string;
     method: string;
   }>;
+  intakeForm: {
+    id: string;
+    clientId: string;
+    goals: string;
+    challenges: string;
+    history: string;
+    preferredStyle: string;
+    availability: string;
+    consent: boolean;
+    status: "draft" | "submitted" | "reviewed";
+    coachReviewRequired: boolean;
+    completedAt: string | null;
+    coachReviewedAt: string | null;
+    updatedAt: string;
+  } | null;
+  onboarding: {
+    portalAccess: boolean;
+    icfCodeOfEthicsAvailable: boolean;
+    intakeCompleted: boolean;
+    coachReviewRequired: boolean;
+    proposalAvailable: boolean;
+    consentCompleted: boolean;
+    agreementSigned: boolean;
+  };
+  proposal: {
+    id: string;
+    clientId: string;
+    coachId: string | null;
+    objectives: string;
+    durationSessions: number;
+    frequency: "weekly" | "bi-weekly";
+    investment: number;
+    expectedOutcomes: string;
+    status: "draft" | "sent" | "accepted" | "rejected";
+    generatedAt: string;
+    sentAt: string | null;
+    dueBy: string;
+    reviewedAt: string | null;
+    updatedAt: string;
+  } | null;
+  consentAgreement: {
+    id: string;
+    clientId: string;
+    proposalId: string;
+    agreementDocId: string | null;
+    consented: boolean;
+    consentedAt: string | null;
+    signatureRequestedAt: string | null;
+    signed: boolean;
+    signatureName: string | null;
+    signedAt: string | null;
+    status: "pending" | "consented" | "signed";
+    updatedAt: string;
+  } | null;
 }
 
 export function useDashboardData() {

@@ -17,12 +17,13 @@ const programs = [
 const journeySteps = [
   { step: "1", title: "Initial Contact", desc: "Reach out via website, phone, or email — or book directly online." },
   { step: "2", title: "Free Pre-Coaching Assessment", desc: "30-45 minute session to assess needs, discuss goals, and explain the process. No payment required." },
-  { step: "3", title: "Client Portal Access", desc: "Receive your portal login, complete the intake form, and review the ICF Code of Ethics." },
-  { step: "4", title: "Coaching Proposal", desc: "Your coach creates a customized proposal with objectives, sessions, pricing, and expected outcomes." },
-  { step: "5", title: "Consent & Agreement", desc: "Review proposal, consent, and digitally sign your coaching agreement." },
-  { step: "6", title: "Payment & Booking", desc: "Select your package, pay via M-Pesa or card, and schedule your sessions." },
-  { step: "7", title: "Coaching Sessions", desc: "60-minute sessions with real-time notes, progress tracking, and coaching logs in your portal." },
-  { step: "8", title: "Final Report & Support", desc: "Receive a comprehensive report, celebration of wins, and access to post-coaching resources." },
+  { step: "3", title: "CRM Profile Creation", desc: "Client profile is created in CRM, portal account is provisioned, and welcome credentials are sent." },
+  { step: "4", title: "Client Portal Access & Documentation", desc: "Client logs in, accesses intake form, reviews ICF Code of Ethics, submits intake, and system flags coach review." },
+  { step: "5", title: "Coaching Proposal", desc: "Coach reviews intake and sends a customized proposal in portal within 48 hours, including objectives, duration, frequency, investment, and expected outcomes." },
+  { step: "6", title: "Consent & Agreement", desc: "Client reviews proposal, clicks I Consent, coaching agreement is generated, signature request is sent, and signed agreement is stored in portal." },
+  { step: "7", title: "Payment & Booking", desc: "Select your package, pay via M-Pesa or card, and schedule your sessions." },
+  { step: "8", title: "Coaching Sessions", desc: "60-minute sessions with real-time notes, progress tracking, and coaching logs in your portal." },
+  { step: "9", title: "Final Report & Support", desc: "Receive a comprehensive report, celebration of wins, and access to post-coaching resources." },
 ];
 
 const Coaching = () => (

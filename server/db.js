@@ -116,6 +116,55 @@ CREATE TABLE IF NOT EXISTS contact_messages (
   created_at TIMESTAMPTZ NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS intake_forms (
+  id TEXT PRIMARY KEY,
+  client_id TEXT NOT NULL UNIQUE REFERENCES clients(id) ON DELETE CASCADE,
+  goals TEXT,
+  challenges TEXT,
+  history TEXT,
+  preferred_style TEXT,
+  availability TEXT,
+  consent BOOLEAN NOT NULL DEFAULT false,
+  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'submitted', 'reviewed')),
+  coach_review_required BOOLEAN NOT NULL DEFAULT false,
+  completed_at TIMESTAMPTZ,
+  coach_reviewed_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS coaching_proposals (
+  id TEXT PRIMARY KEY,
+  client_id TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  coach_id TEXT,
+  objectives TEXT NOT NULL,
+  duration_sessions INTEGER NOT NULL,
+  frequency TEXT NOT NULL CHECK (frequency IN ('weekly', 'bi-weekly')),
+  investment INTEGER NOT NULL,
+  expected_outcomes TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'sent', 'accepted', 'rejected')),
+  generated_at TIMESTAMPTZ NOT NULL,
+  sent_at TIMESTAMPTZ,
+  due_by TIMESTAMPTZ NOT NULL,
+  reviewed_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS consent_agreements (
+  id TEXT PRIMARY KEY,
+  client_id TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  proposal_id TEXT NOT NULL REFERENCES coaching_proposals(id) ON DELETE CASCADE,
+  agreement_doc_id TEXT REFERENCES documents(id),
+  consented BOOLEAN NOT NULL DEFAULT false,
+  consented_at TIMESTAMPTZ,
+  signature_requested_at TIMESTAMPTZ,
+  signed BOOLEAN NOT NULL DEFAULT false,
+  signature_name TEXT,
+  signature_value TEXT,
+  signed_at TIMESTAMPTZ,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'consented', 'signed')),
+  updated_at TIMESTAMPTZ NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS email_dispatches (
   id TEXT PRIMARY KEY,
   recipient_email TEXT NOT NULL,
@@ -210,6 +259,34 @@ async function seedIfEmpty() {
   );
 
   await query(
+    `INSERT INTO intake_forms (
+      id, client_id, goals, challenges, history, preferred_style, availability,
+      consent, status, coach_review_required, completed_at, coach_reviewed_at, updated_at
+    ) VALUES (
+      'if1', 'c1',
+      'Improve leadership confidence, communication, and strategic planning.',
+      'Balancing team demands with personal growth goals.',
+      'Has attended short leadership workshops but no prior 1:1 coaching.',
+      'Prefers practical frameworks, accountability, and reflection prompts.',
+      'Weekdays 9:00-11:00 AM EAT',
+      true, 'submitted', true, NOW(), NULL, NOW()
+    )`,
+  );
+
+  await query(
+    `INSERT INTO coaching_proposals (
+      id, client_id, coach_id, objectives, duration_sessions, frequency,
+      investment, expected_outcomes, status, generated_at, sent_at, due_by, reviewed_at, updated_at
+    ) VALUES (
+      'cp1', 'c1', 'a1',
+      'Strengthen executive communication, increase strategic focus, and improve delegation confidence.',
+      12, 'weekly', 120000,
+      'Clear leadership communication, improved performance conversations, and stronger execution rhythm.',
+      'sent', NOW(), NOW(), NOW() + INTERVAL '48 hours', NULL, NOW()
+    )`,
+  );
+
+  await query(
     `INSERT INTO resources (id, title, description, type, category, date_added) VALUES
      ('r1','Building Emotional Resilience','A comprehensive guide to developing emotional strength in challenging times.','guide','Mental Health','2025-10-01'),
      ('r2','Goal Setting Framework','SMART goals template and planning workbook for coaching clients.','worksheet','Coaching','2025-09-15')`,
@@ -251,5 +328,48 @@ export async function initDb() {
   await query("ALTER TABLE bookings ALTER COLUMN assessment_type SET NOT NULL");
   await query("ALTER TABLE bookings ALTER COLUMN duration_minutes SET NOT NULL");
   await query("ALTER TABLE bookings ALTER COLUMN cost SET NOT NULL");
+
+  await query("ALTER TABLE intake_forms ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'draft'");
+  await query("ALTER TABLE intake_forms ADD COLUMN IF NOT EXISTS coach_review_required BOOLEAN DEFAULT false");
+  await query("ALTER TABLE intake_forms ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ");
+  await query("ALTER TABLE intake_forms ADD COLUMN IF NOT EXISTS coach_reviewed_at TIMESTAMPTZ");
+  await query("ALTER TABLE intake_forms ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()");
+  await query("UPDATE intake_forms SET status = COALESCE(status, 'draft')");
+  await query("UPDATE intake_forms SET coach_review_required = COALESCE(coach_review_required, false)");
+  await query("UPDATE intake_forms SET updated_at = COALESCE(updated_at, NOW())");
+  await query("ALTER TABLE intake_forms ALTER COLUMN status SET NOT NULL");
+  await query("ALTER TABLE intake_forms ALTER COLUMN coach_review_required SET NOT NULL");
+  await query("ALTER TABLE intake_forms ALTER COLUMN updated_at SET NOT NULL");
+
+  await query("ALTER TABLE coaching_proposals ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'draft'");
+  await query("ALTER TABLE coaching_proposals ADD COLUMN IF NOT EXISTS sent_at TIMESTAMPTZ");
+  await query("ALTER TABLE coaching_proposals ADD COLUMN IF NOT EXISTS due_by TIMESTAMPTZ DEFAULT NOW() + INTERVAL '48 hours'");
+  await query("ALTER TABLE coaching_proposals ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ");
+  await query("ALTER TABLE coaching_proposals ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()");
+  await query("UPDATE coaching_proposals SET status = COALESCE(status, 'draft')");
+  await query("UPDATE coaching_proposals SET due_by = COALESCE(due_by, generated_at + INTERVAL '48 hours')");
+  await query("UPDATE coaching_proposals SET updated_at = COALESCE(updated_at, NOW())");
+  await query("ALTER TABLE coaching_proposals ALTER COLUMN status SET NOT NULL");
+  await query("ALTER TABLE coaching_proposals ALTER COLUMN due_by SET NOT NULL");
+  await query("ALTER TABLE coaching_proposals ALTER COLUMN updated_at SET NOT NULL");
+
+  await query("ALTER TABLE consent_agreements ADD COLUMN IF NOT EXISTS consented BOOLEAN DEFAULT false");
+  await query("ALTER TABLE consent_agreements ADD COLUMN IF NOT EXISTS consented_at TIMESTAMPTZ");
+  await query("ALTER TABLE consent_agreements ADD COLUMN IF NOT EXISTS signature_requested_at TIMESTAMPTZ");
+  await query("ALTER TABLE consent_agreements ADD COLUMN IF NOT EXISTS signed BOOLEAN DEFAULT false");
+  await query("ALTER TABLE consent_agreements ADD COLUMN IF NOT EXISTS signature_name TEXT");
+  await query("ALTER TABLE consent_agreements ADD COLUMN IF NOT EXISTS signature_value TEXT");
+  await query("ALTER TABLE consent_agreements ADD COLUMN IF NOT EXISTS signed_at TIMESTAMPTZ");
+  await query("ALTER TABLE consent_agreements ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending'");
+  await query("ALTER TABLE consent_agreements ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()");
+  await query("UPDATE consent_agreements SET consented = COALESCE(consented, false)");
+  await query("UPDATE consent_agreements SET signed = COALESCE(signed, false)");
+  await query("UPDATE consent_agreements SET status = COALESCE(status, 'pending')");
+  await query("UPDATE consent_agreements SET updated_at = COALESCE(updated_at, NOW())");
+  await query("ALTER TABLE consent_agreements ALTER COLUMN consented SET NOT NULL");
+  await query("ALTER TABLE consent_agreements ALTER COLUMN signed SET NOT NULL");
+  await query("ALTER TABLE consent_agreements ALTER COLUMN status SET NOT NULL");
+  await query("ALTER TABLE consent_agreements ALTER COLUMN updated_at SET NOT NULL");
+
   await seedIfEmpty();
 }

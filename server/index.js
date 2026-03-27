@@ -152,6 +152,63 @@ function toCamelBooking(row) {
   };
 }
 
+function toCamelIntakeForm(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    clientId: row.client_id,
+    goals: row.goals || "",
+    challenges: row.challenges || "",
+    history: row.history || "",
+    preferredStyle: row.preferred_style || "",
+    availability: row.availability || "",
+    consent: Boolean(row.consent),
+    status: row.status,
+    coachReviewRequired: Boolean(row.coach_review_required),
+    completedAt: row.completed_at,
+    coachReviewedAt: row.coach_reviewed_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function toCamelProposal(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    clientId: row.client_id,
+    coachId: row.coach_id,
+    objectives: row.objectives,
+    durationSessions: row.duration_sessions,
+    frequency: row.frequency,
+    investment: row.investment,
+    expectedOutcomes: row.expected_outcomes,
+    status: row.status,
+    generatedAt: row.generated_at,
+    sentAt: row.sent_at,
+    dueBy: row.due_by,
+    reviewedAt: row.reviewed_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function toCamelConsentAgreement(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    clientId: row.client_id,
+    proposalId: row.proposal_id,
+    agreementDocId: row.agreement_doc_id,
+    consented: Boolean(row.consented),
+    consentedAt: row.consented_at,
+    signatureRequestedAt: row.signature_requested_at,
+    signed: Boolean(row.signed),
+    signatureName: row.signature_name,
+    signedAt: row.signed_at,
+    status: row.status,
+    updatedAt: row.updated_at,
+  };
+}
+
 function buildWelcomeEmail({ name, email, password, clientId, service }) {
   const portalUrl = process.env.CLIENT_PORTAL_URL || "https://inner-springs-bloom-production.up.railway.app/login";
   const subject = "Welcome to InnerSprings Client Portal";
@@ -280,13 +337,21 @@ app.get("/api/dashboard/:clientId", async (req, res) => {
     return res.status(404).json({ message: "Client not found" });
   }
 
-  const [sessions, documents, notifications, payments, resources] = await Promise.all([
+  const [sessions, documents, notifications, payments, resources, intakeForm, proposalResult, consentAgreementResult] = await Promise.all([
     query("SELECT * FROM sessions WHERE client_id = $1 ORDER BY session_number", [clientId]),
     query("SELECT * FROM documents WHERE client_id = $1 ORDER BY date_added DESC", [clientId]),
     query("SELECT * FROM notifications WHERE client_id = $1 ORDER BY date DESC", [clientId]),
     query("SELECT * FROM payments WHERE client_id = $1 ORDER BY session_number", [clientId]),
     query("SELECT * FROM resources ORDER BY date_added DESC"),
+    query("SELECT * FROM intake_forms WHERE client_id = $1 LIMIT 1", [clientId]),
+    query("SELECT * FROM coaching_proposals WHERE client_id = $1 ORDER BY updated_at DESC LIMIT 1", [clientId]),
+    query("SELECT * FROM consent_agreements WHERE client_id = $1 ORDER BY updated_at DESC LIMIT 1", [clientId]),
   ]);
+
+  const icfEthicsAvailable = documents.rows.some((doc) => doc.title?.toLowerCase().includes("icf code of ethics"));
+
+  const latestProposal = proposalResult.rows[0] || null;
+  const latestAgreement = consentAgreementResult.rows[0] || null;
 
   return res.json({
     client: toCamelClient(clientRow),
@@ -295,7 +360,75 @@ app.get("/api/dashboard/:clientId", async (req, res) => {
     notifications: notifications.rows.map(toCamelNotification),
     payments: payments.rows.map(toCamelPayment),
     resources: resources.rows.map(toCamelResource),
+    intakeForm: toCamelIntakeForm(intakeForm.rows[0] || null),
+    onboarding: {
+      portalAccess: true,
+      icfCodeOfEthicsAvailable: icfEthicsAvailable,
+      intakeCompleted: intakeForm.rows[0]?.status === "submitted" || intakeForm.rows[0]?.status === "reviewed",
+      coachReviewRequired: Boolean(intakeForm.rows[0]?.coach_review_required),
+      proposalAvailable: Boolean(latestProposal?.status === "sent" || latestProposal?.status === "accepted"),
+      consentCompleted: Boolean(latestAgreement?.consented),
+      agreementSigned: Boolean(latestAgreement?.signed),
+    },
+    proposal: toCamelProposal(latestProposal),
+    consentAgreement: toCamelConsentAgreement(latestAgreement),
   });
+});
+
+app.post("/api/dashboard/:clientId/intake-form", async (req, res) => {
+  const { clientId } = req.params;
+  const { goals, challenges, history, preferredStyle, availability, consent } = req.body ?? {};
+
+  if (!goals || !challenges || !preferredStyle || !availability || consent !== true) {
+    return res.status(400).json({
+      message: "Missing required fields: goals, challenges, preferredStyle, availability, and consent=true",
+    });
+  }
+
+  const existing = await query("SELECT id FROM intake_forms WHERE client_id = $1 LIMIT 1", [clientId]);
+  const now = new Date().toISOString();
+
+  if (existing.rowCount > 0) {
+    await query(
+      `UPDATE intake_forms
+       SET goals = $2,
+           challenges = $3,
+           history = $4,
+           preferred_style = $5,
+           availability = $6,
+           consent = true,
+           status = 'submitted',
+           coach_review_required = true,
+           completed_at = COALESCE(completed_at, $7),
+           coach_reviewed_at = NULL,
+           updated_at = $7
+       WHERE client_id = $1`,
+      [clientId, goals, challenges, history || "", preferredStyle, availability, now],
+    );
+  } else {
+    await query(
+      `INSERT INTO intake_forms (
+        id, client_id, goals, challenges, history, preferred_style, availability,
+        consent, status, coach_review_required, completed_at, updated_at
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,true,'submitted',true,$8,$8)`,
+      [`if_${nanoid(10)}`, clientId, goals, challenges, history || "", preferredStyle, availability, now],
+    );
+  }
+
+  await query(
+    `INSERT INTO notifications (id, client_id, title, message, type, date, read)
+     VALUES ($1,$2,$3,$4,$5,$6,false)`,
+    [
+      `n_${nanoid(10)}`,
+      clientId,
+      "Intake Form Submitted",
+      "Your intake form has been submitted successfully and flagged for coach review.",
+      "system",
+      now.slice(0, 10),
+    ],
+  );
+
+  return res.status(201).json({ ok: true, coachReviewRequired: true });
 });
 
 app.get("/api/admin/clients", async (_req, res) => {
@@ -311,13 +444,16 @@ app.get("/api/admin/clients/:clientId", async (req, res) => {
     return res.status(404).json({ message: "Client not found" });
   }
 
-  const [userResult, sessions, documents, notifications, payments, bookingResult] = await Promise.all([
+  const [userResult, sessions, documents, notifications, payments, bookingResult, intakeFormResult, proposalResult, consentAgreementResult] = await Promise.all([
     query("SELECT id, name, email, phone, role FROM users WHERE client_id = $1 LIMIT 1", [clientId]),
     query("SELECT * FROM sessions WHERE client_id = $1 ORDER BY session_number", [clientId]),
     query("SELECT * FROM documents WHERE client_id = $1 ORDER BY date_added DESC", [clientId]),
     query("SELECT * FROM notifications WHERE client_id = $1 ORDER BY date DESC", [clientId]),
     query("SELECT * FROM payments WHERE client_id = $1 ORDER BY session_number", [clientId]),
     query("SELECT * FROM bookings WHERE converted_client_id = $1 ORDER BY reviewed_at DESC LIMIT 1", [clientId]),
+    query("SELECT * FROM intake_forms WHERE client_id = $1 LIMIT 1", [clientId]),
+    query("SELECT * FROM coaching_proposals WHERE client_id = $1 ORDER BY updated_at DESC LIMIT 1", [clientId]),
+    query("SELECT * FROM consent_agreements WHERE client_id = $1 ORDER BY updated_at DESC LIMIT 1", [clientId]),
   ]);
 
   return res.json({
@@ -328,7 +464,237 @@ app.get("/api/admin/clients/:clientId", async (req, res) => {
     notifications: notifications.rows.map(toCamelNotification),
     payments: payments.rows.map(toCamelPayment),
     sourceBooking: bookingResult.rows[0] ? toCamelBooking(bookingResult.rows[0]) : null,
+    intakeForm: toCamelIntakeForm(intakeFormResult.rows[0] || null),
+    proposal: toCamelProposal(proposalResult.rows[0] || null),
+    consentAgreement: toCamelConsentAgreement(consentAgreementResult.rows[0] || null),
   });
+});
+
+app.post("/api/admin/clients/:clientId/intake-form/review", async (req, res) => {
+  const { clientId } = req.params;
+  const now = new Date().toISOString();
+
+  const result = await query(
+    `UPDATE intake_forms
+     SET status = 'reviewed',
+         coach_review_required = false,
+         coach_reviewed_at = $2,
+         updated_at = $2
+     WHERE client_id = $1`,
+    [clientId, now],
+  );
+
+  if (result.rowCount === 0) {
+    return res.status(404).json({ message: "Intake form not found" });
+  }
+
+  await query(
+    `INSERT INTO notifications (id, client_id, title, message, type, date, read)
+     VALUES ($1,$2,$3,$4,$5,$6,false)`,
+    [
+      `n_${nanoid(10)}`,
+      clientId,
+      "Intake Form Reviewed",
+      "Your coach has reviewed your intake form and your onboarding is complete.",
+      "system",
+      now.slice(0, 10),
+    ],
+  );
+
+  return res.json({ ok: true, coachReviewRequired: false, reviewedAt: now });
+});
+
+app.post("/api/admin/clients/:clientId/proposal", async (req, res) => {
+  const { clientId } = req.params;
+  const { objectives, durationSessions, frequency, investment, expectedOutcomes } = req.body ?? {};
+
+  if (!objectives || !durationSessions || !frequency || !investment || !expectedOutcomes) {
+    return res.status(400).json({
+      message: "Missing required fields: objectives, durationSessions, frequency, investment, expectedOutcomes",
+    });
+  }
+
+  if (!["weekly", "bi-weekly"].includes(frequency)) {
+    return res.status(400).json({ message: "frequency must be weekly or bi-weekly" });
+  }
+
+  const now = new Date();
+  const dueBy = new Date(now.getTime() + 48 * 60 * 60 * 1000).toISOString();
+  const generatedAt = now.toISOString();
+  const proposalId = `cp_${nanoid(10)}`;
+
+  await query(
+    `INSERT INTO coaching_proposals (
+      id, client_id, coach_id, objectives, duration_sessions, frequency,
+      investment, expected_outcomes, status, generated_at, sent_at, due_by, reviewed_at, updated_at
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'sent',$9,$9,$10,$9,$9)`,
+    [
+      proposalId,
+      clientId,
+      null,
+      objectives,
+      Number(durationSessions),
+      frequency,
+      Number(investment),
+      expectedOutcomes,
+      generatedAt,
+      dueBy,
+    ],
+  );
+
+  await query(
+    `INSERT INTO notifications (id, client_id, title, message, type, date, read)
+     VALUES ($1,$2,$3,$4,$5,$6,false)`,
+    [
+      `n_${nanoid(10)}`,
+      clientId,
+      "Coaching Proposal Available",
+      "Your customized coaching proposal has been uploaded to your client portal for review.",
+      "system",
+      generatedAt.slice(0, 10),
+    ],
+  );
+
+  return res.status(201).json({
+    proposal: {
+      id: proposalId,
+      clientId,
+      objectives,
+      durationSessions: Number(durationSessions),
+      frequency,
+      investment: Number(investment),
+      expectedOutcomes,
+      status: "sent",
+      generatedAt,
+      dueBy,
+    },
+  });
+});
+
+app.post("/api/dashboard/:clientId/proposals/:proposalId/consent", async (req, res) => {
+  const { clientId, proposalId } = req.params;
+  const now = new Date().toISOString();
+
+  const proposalResult = await query(
+    "SELECT * FROM coaching_proposals WHERE id = $1 AND client_id = $2 LIMIT 1",
+    [proposalId, clientId],
+  );
+  const proposal = proposalResult.rows[0];
+  if (!proposal) {
+    return res.status(404).json({ message: "Proposal not found" });
+  }
+
+  const agreementDocId = `d_${nanoid(10)}`;
+
+  const existingAgreementResult = await query(
+    "SELECT id FROM consent_agreements WHERE proposal_id = $1 AND client_id = $2 LIMIT 1",
+    [proposalId, clientId],
+  );
+  const agreementId = existingAgreementResult.rows[0]?.id || `ca_${nanoid(10)}`;
+
+  await withTransaction(async (tx) => {
+    await tx.query(
+      "UPDATE coaching_proposals SET status = 'accepted', reviewed_at = $3, updated_at = $3 WHERE id = $1 AND client_id = $2",
+      [proposalId, clientId, now],
+    );
+
+    await tx.query(
+      `INSERT INTO documents (id, client_id, title, type, session_related, date_added, file_size)
+       VALUES ($1,$2,$3,'agreement',NULL,$4,$5)`,
+      [agreementDocId, clientId, "Coaching Agreement", now.slice(0, 10), "210 KB"],
+    );
+
+    if (existingAgreementResult.rowCount > 0) {
+      await tx.query(
+        `UPDATE consent_agreements
+         SET agreement_doc_id = $4,
+             consented = true,
+             consented_at = $5,
+             signature_requested_at = $5,
+             signed = false,
+             signature_name = NULL,
+             signature_value = NULL,
+             signed_at = NULL,
+             status = 'consented',
+             updated_at = $5
+         WHERE id = $1 AND client_id = $2 AND proposal_id = $3`,
+        [agreementId, clientId, proposalId, agreementDocId, now],
+      );
+    } else {
+      await tx.query(
+        `INSERT INTO consent_agreements (
+          id, client_id, proposal_id, agreement_doc_id, consented, consented_at,
+          signature_requested_at, signed, status, updated_at
+        ) VALUES ($1,$2,$3,$4,true,$5,$5,false,'consented',$5)`,
+        [agreementId, clientId, proposalId, agreementDocId, now],
+      );
+    }
+
+    await tx.query(
+      `INSERT INTO notifications (id, client_id, title, message, type, date, read)
+       VALUES ($1,$2,$3,$4,$5,$6,false)`,
+      [
+        `n_${nanoid(10)}`,
+        clientId,
+        "Digital Signature Requested",
+        "Your coaching agreement is ready. Please sign electronically in the portal.",
+        "system",
+        now.slice(0, 10),
+      ],
+    );
+  });
+
+  return res.status(201).json({
+    ok: true,
+    agreement: {
+      id: agreementId,
+      status: "consented",
+      agreementDocId,
+      signatureRequestedAt: now,
+    },
+  });
+});
+
+app.post("/api/dashboard/:clientId/agreements/:agreementId/sign", async (req, res) => {
+  const { clientId, agreementId } = req.params;
+  const { signatureName } = req.body ?? {};
+  if (!signatureName) {
+    return res.status(400).json({ message: "Missing required field: signatureName" });
+  }
+
+  const now = new Date().toISOString();
+  const signatureValue = `signed:${signatureName}:${now}`;
+
+  const result = await query(
+    `UPDATE consent_agreements
+     SET signed = true,
+         status = 'signed',
+         signature_name = $3,
+         signature_value = $4,
+         signed_at = $5,
+         updated_at = $5
+     WHERE id = $1 AND client_id = $2`,
+    [agreementId, clientId, signatureName, signatureValue, now],
+  );
+
+  if (result.rowCount === 0) {
+    return res.status(404).json({ message: "Agreement not found" });
+  }
+
+  await query(
+    `INSERT INTO notifications (id, client_id, title, message, type, date, read)
+     VALUES ($1,$2,$3,$4,$5,$6,false)`,
+    [
+      `n_${nanoid(10)}`,
+      clientId,
+      "Agreement Signed",
+      "Your coaching agreement has been signed and stored in your portal.",
+      "system",
+      now.slice(0, 10),
+    ],
+  );
+
+  return res.json({ ok: true, signedAt: now, signatureName });
 });
 
 app.get("/api/admin/admins", async (_req, res) => {
@@ -413,6 +779,21 @@ app.post("/api/admin/bookings/:bookingId/provision-client", async (req, res) => 
         "email",
         today,
       ],
+    );
+
+    await tx.query(
+      `INSERT INTO documents (id, client_id, title, type, session_related, date_added, file_size)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)
+       ON CONFLICT (id) DO NOTHING`,
+      [`d_${nanoid(10)}`, clientId, "ICF Code of Ethics", "agreement", null, today, "180 KB"],
+    );
+
+    await tx.query(
+      `INSERT INTO intake_forms (
+        id, client_id, consent, status, coach_review_required, updated_at
+      ) VALUES ($1,$2,false,'draft',false,NOW())
+      ON CONFLICT (client_id) DO NOTHING`,
+      [`if_${nanoid(10)}`, clientId],
     );
   });
 

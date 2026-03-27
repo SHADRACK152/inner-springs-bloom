@@ -58,6 +58,48 @@ interface ClientDetailsPayload {
     method: string;
     date: string;
   }>;
+  intakeForm: {
+    id: string;
+    clientId: string;
+    goals: string;
+    challenges: string;
+    history: string;
+    preferredStyle: string;
+    availability: string;
+    consent: boolean;
+    status: "draft" | "submitted" | "reviewed";
+    coachReviewRequired: boolean;
+    completedAt: string | null;
+    coachReviewedAt: string | null;
+    updatedAt: string;
+  } | null;
+  proposal: {
+    id: string;
+    clientId: string;
+    objectives: string;
+    durationSessions: number;
+    frequency: "weekly" | "bi-weekly";
+    investment: number;
+    expectedOutcomes: string;
+    status: "draft" | "sent" | "accepted" | "rejected";
+    generatedAt: string;
+    sentAt: string | null;
+    dueBy: string;
+    reviewedAt: string | null;
+  } | null;
+  consentAgreement: {
+    id: string;
+    clientId: string;
+    proposalId: string;
+    agreementDocId: string | null;
+    consented: boolean;
+    consentedAt: string | null;
+    signatureRequestedAt: string | null;
+    signed: boolean;
+    signatureName: string | null;
+    signedAt: string | null;
+    status: "pending" | "consented" | "signed";
+  } | null;
 }
 
 const AdminClientDetails = () => {
@@ -67,6 +109,13 @@ const AdminClientDetails = () => {
   const [paymentForm, setPaymentForm] = useState({ sessionNumber: "", amount: "", method: "M-Pesa", date: "" });
   const [documentForm, setDocumentForm] = useState({ title: "", type: "report", sessionRelated: "", fileSize: "N/A" });
   const [notificationForm, setNotificationForm] = useState({ title: "", type: "email", message: "" });
+  const [proposalForm, setProposalForm] = useState({
+    objectives: "",
+    durationSessions: "12",
+    frequency: "weekly",
+    investment: "120000",
+    expectedOutcomes: "",
+  });
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["admin-client-details", clientId],
@@ -139,6 +188,33 @@ const AdminClientDetails = () => {
     }
   };
 
+  const markIntakeReviewed = async () => {
+    if (!clientId) return;
+    try {
+      await api.post(`/api/admin/clients/${clientId}/intake-form/review`, {} as Record<string, never>);
+      toast.success("Intake form marked as reviewed");
+      await refreshAll();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to mark intake as reviewed");
+    }
+  };
+
+  const generateProposal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!clientId) return;
+    try {
+      await api.post(`/api/admin/clients/${clientId}/proposal`, {
+        ...proposalForm,
+        durationSessions: Number(proposalForm.durationSessions),
+        investment: Number(proposalForm.investment),
+      });
+      toast.success("Coaching proposal generated and sent to client portal");
+      await refreshAll();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to generate proposal");
+    }
+  };
+
   if (isLoading || !data) {
     return (
       <AdminLayout>
@@ -193,6 +269,68 @@ const AdminClientDetails = () => {
             <p className="text-sm text-muted-foreground">Documents: {data.documents.length}</p>
             <p className="text-sm text-muted-foreground">Payments: {data.payments.length}</p>
             <p className="text-sm text-muted-foreground">Notifications: {data.notifications.length}</p>
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-border bg-card p-5 space-y-3">
+          <h3 className="text-lg text-navy">Intake Form & Coach Review</h3>
+          {!data.intakeForm && <p className="text-sm text-muted-foreground">No intake form created yet.</p>}
+          {data.intakeForm && (
+            <>
+              <p className="text-sm text-muted-foreground">Status: <span className="font-medium text-foreground">{data.intakeForm.status}</span></p>
+              <p className="text-sm text-muted-foreground">Coach review flag: <span className="font-medium text-foreground">{data.intakeForm.coachReviewRequired ? "Required" : "Cleared"}</span></p>
+              <p className="text-sm text-muted-foreground">Consent: <span className="font-medium text-foreground">{data.intakeForm.consent ? "Given" : "Pending"}</span></p>
+              {data.intakeForm.goals && <p className="text-sm text-muted-foreground">Goals: {data.intakeForm.goals}</p>}
+              {data.intakeForm.challenges && <p className="text-sm text-muted-foreground">Challenges: {data.intakeForm.challenges}</p>}
+              <div>
+                <Button
+                  onClick={markIntakeReviewed}
+                  disabled={!data.intakeForm.coachReviewRequired}
+                >
+                  Mark Intake as Reviewed
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-2">
+          <form onSubmit={generateProposal} className="rounded-lg border border-border bg-card p-5 space-y-3">
+            <h3 className="text-lg text-navy">Step 5: Generate Coaching Proposal</h3>
+            <textarea value={proposalForm.objectives} onChange={(e) => setProposalForm({ ...proposalForm, objectives: e.target.value })} className="w-full rounded border border-input bg-background px-3 py-2 text-sm" rows={3} placeholder="Coaching objectives" />
+            <textarea value={proposalForm.expectedOutcomes} onChange={(e) => setProposalForm({ ...proposalForm, expectedOutcomes: e.target.value })} className="w-full rounded border border-input bg-background px-3 py-2 text-sm" rows={3} placeholder="Expected outcomes" />
+            <div className="grid grid-cols-2 gap-3">
+              <input value={proposalForm.durationSessions} onChange={(e) => setProposalForm({ ...proposalForm, durationSessions: e.target.value })} type="number" className="rounded border border-input bg-background px-3 py-2 text-sm" placeholder="Duration (sessions)" />
+              <select value={proposalForm.frequency} onChange={(e) => setProposalForm({ ...proposalForm, frequency: e.target.value })} className="rounded border border-input bg-background px-3 py-2 text-sm">
+                <option value="weekly">weekly</option>
+                <option value="bi-weekly">bi-weekly</option>
+              </select>
+            </div>
+            <input value={proposalForm.investment} onChange={(e) => setProposalForm({ ...proposalForm, investment: e.target.value })} type="number" className="w-full rounded border border-input bg-background px-3 py-2 text-sm" placeholder="Investment (KES)" />
+            <Button type="submit" disabled={!data.intakeForm || data.intakeForm.status !== "reviewed"}>Generate Proposal</Button>
+            {(!data.intakeForm || data.intakeForm.status !== "reviewed") && (
+              <p className="text-xs text-muted-foreground">Review intake form first before generating a proposal.</p>
+            )}
+          </form>
+
+          <div className="rounded-lg border border-border bg-card p-5 space-y-2">
+            <h3 className="text-lg text-navy">Step 6: Consent & Agreement Status</h3>
+            {!data.proposal && <p className="text-sm text-muted-foreground">No proposal sent yet.</p>}
+            {data.proposal && (
+              <>
+                <p className="text-sm text-muted-foreground">Proposal status: <span className="font-medium text-foreground">{data.proposal.status}</span></p>
+                <p className="text-sm text-muted-foreground">Sent at: <span className="font-medium text-foreground">{data.proposal.sentAt ? new Date(data.proposal.sentAt).toLocaleString() : "Pending"}</span></p>
+                <p className="text-sm text-muted-foreground">Due by: <span className="font-medium text-foreground">{new Date(data.proposal.dueBy).toLocaleString()}</span></p>
+              </>
+            )}
+            {!data.consentAgreement && <p className="text-sm text-muted-foreground">No consent captured yet.</p>}
+            {data.consentAgreement && (
+              <>
+                <p className="text-sm text-muted-foreground">Consent: <span className="font-medium text-foreground">{data.consentAgreement.consented ? "Yes" : "No"}</span></p>
+                <p className="text-sm text-muted-foreground">Digital signature: <span className="font-medium text-foreground">{data.consentAgreement.signed ? "Signed" : "Pending"}</span></p>
+                {data.consentAgreement.signatureName && <p className="text-sm text-muted-foreground">Signed by: {data.consentAgreement.signatureName}</p>}
+              </>
+            )}
           </div>
         </div>
 
